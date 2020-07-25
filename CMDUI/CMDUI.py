@@ -41,7 +41,7 @@ y_offset = 32 # pixels (including menu bar)
 
 
 
-class CMDUI():
+class CMDUI:
 
 
     def __init__(self):
@@ -54,6 +54,14 @@ class CMDUI():
         self.mouse_down = False
         self.window_width = self.win_listener.term_size[0]
         self.window_height = self.win_listener.term_size[1]
+
+        self.last_resize_time = time.time()
+
+        self.resizing = False
+
+        self.xx = 0
+
+        self.nob = True
 
 
     def mainloop(self):
@@ -112,11 +120,55 @@ class CMDUI():
         pass
         #print("MOVED:", x, y)
 
+    
+    def check_for_resize(self, w, h):
+        time.sleep(0.5)
 
+        time_since_last_resize = time.time() - self.last_resize_time
+        # print(time_since_last_resize)###
+
+        if not time_since_last_resize > 0.5:
+            return        
+
+        #print(self.resizing)###
+
+        #print("RESIZE TIME")###
+        self.resizing = False
+
+        # Ok ok ok so sometimes because we are using threads two resizes can 
+        # trigger at once causing a glitch. The following "self.nob" is the 
+        # most gank fix I've ever written but somehow it works oh god im sorry 
+        # please dont smite me down...
+
+        if self.nob:
+            self.nob = False
+            #print("RESOOS")###
+            self.window_width = w
+            self.window_height = h
+            self.update_pack()
+            self.nob = True
+        else:
+            pass
+
+    
     def on_window_resize(self, w, h):
-        self.update_pack()
-        self.window_width = w
-        self.window_height = h
+        self.xx += 1
+        #print(self.xx)###
+        #print(self.resizing)###
+
+        if self.resizing:
+            self.last_resize_time = time.time()
+            threading.Thread(target=self.check_for_resize, args=(w, h)).start()
+            return
+
+        os.system("cls")
+
+        #print(self.xx)###
+        #print(self.resizing)###
+
+        self.resizing = True
+        return self.on_window_resize(w, h)
+        #threading.Thread(target=self.check_for_resize, args=(w, h)).start()
 
 
     def update_pack(self):
@@ -142,6 +194,10 @@ class CMDUI():
 
             widget_yoffset += widget.height
 
+    def get_window_position_and_size(self):
+        rect = win32gui.GetWindowRect(self.win_listener.hwnd) # x1, y1, x2, y2
+        return rect
+
 
 class Widget:
 
@@ -159,7 +215,7 @@ class Widget:
 
 
     def draw(self):
-        winx1, winy1, winx2, winy2 = get_window_position_and_size()
+        winx1, winy1, winx2, winy2 = self.cmdui_obj.get_window_position_and_size()
 
         winw, winh = winx2 - winx1, winy2 - winy1
         winw, winh = depixelize(winw-x_offset, winh-y_offset)
@@ -188,7 +244,7 @@ class Widget:
 
 
     def undraw(self):
-        winx1, winy1, winx2, winy2 = get_window_position_and_size()
+        winx1, winy1, winx2, winy2 = self.cmdui_obj.get_window_position_and_size()
 
         winw, winh = winx2 - winx1, winy2 - winy1
         winw, winh = depixelize(winw-x_offset, winh-y_offset)
@@ -218,7 +274,7 @@ class Widget:
 
         self.undraw()
 
-        winx1, winy1, winx2, winy2 = get_window_position_and_size()
+        winx1, winy1, winx2, winy2 = self.cmdui_obj.get_window_position_and_size()
 
         winw, winh = winx2-winx1, winy2-winy1
         winw, winh = depixelize(winw-x_offset, winh-y_offset)
@@ -271,6 +327,32 @@ class Widget:
     def pack(self):
         if self not in self.cmdui_obj.packed_widgets:
             self.cmdui_obj.packed_widgets.append(self)
+    
+    
+    # Return a tuple with the pixel origin.
+    def get_origin(self):
+        x1, y1, _, _ = self.cmdui_obj.get_window_position_and_size()
+        return (x1 + x_offset, y1 + y_offset)
+
+    def check_inside_window(self, x, y):
+        win_pos = self.cmdui_obj.get_window_position_and_size()
+        if x > win_pos[0] and x < win_pos[2] and y > win_pos[1] and y < win_pos[3]:
+            return True
+        else:
+            return False
+
+    def check_inside(self, x, y, obj):
+        if not self.check_inside_window(x, y):
+            return False
+
+        pix_width, pix_height = pixelize(obj.width, obj.height)
+        pix_x, pix_y = pixelize(obj.x, obj.y)
+        ox, oy = self.get_origin()
+
+        if x > (ox+pix_x) and x < (ox+pix_x+pix_width) and y > (oy+pix_y) and y < (oy+pix_y+pix_height):
+            return True
+        else:
+            return False
 
 
 class CMDButton(Widget):
@@ -380,16 +462,16 @@ class CMDButton(Widget):
 
 
     def update_button(self, x, y):
-        if check_inside(x, y, self) and self.active == False:
+        if self.check_inside(x, y, self) and self.active == False:
             self.draw_hover()
             self.active = True
-        elif not check_inside(x, y, self) and self.active == True:
+        elif not self.check_inside(x, y, self) and self.active == True:
             self.display = self.generate_button(self.text)
             self.draw()
             self.active = False
 
     def is_clicked(self, x, y):
-        if check_inside(x, y, self):
+        if self.check_inside(x, y, self):
             self.draw_pressed()
             time.sleep(0.05)
             self.draw_hover()
@@ -408,6 +490,8 @@ class CMDInput(Widget):
         self.y = y
         self.width = len(text) + 6
         self.height = 3
+
+        self.cmdui_obj = cmdui_obj
 
         self.text = text
 
@@ -461,16 +545,16 @@ class CMDInput(Widget):
 
 
     def update_button(self, x, y):
-        if check_inside(x, y, self) and self.active == False:
+        if self.check_inside(x, y, self) and self.active == False:
             self.draw_hover()
             self.active = True
-        elif not check_inside(x, y, self) and self.active == True:
+        elif not self.check_inside(x, y, self) and self.active == True:
             self.display = self.generate_button(self.text)
             self.draw()
             self.active = False
 
     def is_clicked(self, x, y):
-        if check_inside(x, y, self):
+        if self.check_inside(x, y, self):
             self.draw_pressed()
             time.sleep(0.05)
             self.draw_hover()
@@ -481,11 +565,13 @@ class CMDInput(Widget):
 
 class DrawPad(Widget):
 
-    def __init__(self, x=0, y=0, h=1, w=1):
+    def __init__(self, cmdui_obj, x=0, y=0, h=1, w=1):
         self.x = x
         self.y = y
         self.width = w
         self.height = h
+
+        self.cmdui_obj = cmdui_obj
 
         self.display = self.generate_pad()
 
@@ -511,8 +597,8 @@ class DrawPad(Widget):
             print("\b \b"*len(self.display[i]))
 
     def update_pad(self, x, y):
-        if check_inside(x, y, self):
-            x1, y1, _, _ = get_window_position_and_size()
+        if self.check_inside(x, y, self):
+            x1, y1, _, _ = self.cmdui_obj.get_window_position_and_size()
 
             manual_correct_x = 1
             manual_correct_y = 2
@@ -529,44 +615,22 @@ def depixelize(x, y):
     return (x//char_width, y//char_height)
 
 
-# Return a tuple with the pixel origin.
-def get_origin():
-   x1, y1, _, _ = get_window_position_and_size()
-   return (x1 + x_offset, y1 + y_offset)
 
 
-def get_window_position_and_size(self):
-    rect = win32gui.GetWindowRect(self.win_listener.hwnd) # x1, y1, x2, y2
-    return rect
-
-
-def check_inside_window(x, y):
-   win_pos = get_window_position_and_size()
-   if x > win_pos[0] and x < win_pos[2] and y > win_pos[1] and y < win_pos[3]:
-      return True
-   else:
-      return False
-
-def check_inside(x, y, obj):
-    if not check_inside_window(x, y):
-        return False
-
-    pix_width, pix_height = pixelize(obj.width, obj.height)
-    pix_x, pix_y = pixelize(obj.x, obj.y)
-    ox, oy = get_origin()
-
-    if x > (ox+pix_x) and x < (ox+pix_x+pix_width) and y > (oy+pix_y) and y < (oy+pix_y+pix_height):
-        return True
-    else:
-        return False
+# def get_window_position_and_size(self):
+#     rect = win32gui.GetWindowRect(self.win_listener.hwnd) # x1, y1, x2, y2
+#     return rect
 
 
 
-##def enumHandler(hwnd, args):
-##    pid, hwnds = args
-##    _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
-##    if found_pid == pid and win32gui.IsWindowVisible(hwnd):
-##        hwnds.append(hwnd)
+
+
+
+# def enumHandler(hwnd, args):
+#    pid, hwnds = args
+#    _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+#    if found_pid == pid and win32gui.IsWindowVisible(hwnd):
+#        hwnds.append(hwnd)
 ##
 ##
 ##def find_windows_from_pid(pid):
@@ -640,19 +704,6 @@ def check_inside(x, y, obj):
 
 
 
-
-
-
-
-
-
-##class TestWidgetHandler():
-##
-##    def __init__(self):
-##        pass
-##
-##wid_han = TestWidgetHandler()
-
 """ MAIN FUNC NOW UNEEDED!
 def main():
     os.system("cls && color a")
@@ -716,20 +767,5 @@ def main():
         listener.stop()
         winpos_listener.stop()
         raise e
-
-"""
-
-
-"""
-cmd_obj = control_quickedit.CMD_Object()
-
-try:
-    cmd_obj.disable_quickedit()
-    main()
-except Exception as e:
-    print(e)
-    os.system("color 7")
-    cmd_obj.enable_quickedit()
-
 
 """
