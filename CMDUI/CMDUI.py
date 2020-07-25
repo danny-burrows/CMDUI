@@ -4,11 +4,12 @@ import time
 import win32gui
 import threading
 from pynput.mouse import Listener, Controller
-import new_window_listener
-import control_quickedit
 
-import curser_position as cur
-import color_console as cons
+from . import new_window_listener
+from . import control_quickedit
+
+from . import curser_position as cur
+from . import color_console as cons
 
 
 os.system("color a")
@@ -130,7 +131,7 @@ class CMDUI():
 
         widget_yoffset = 0
 
-        for i, widget in enumerate(self.packed_widgets):
+        for _, widget in enumerate(self.packed_widgets):
 
             widget.undraw()
 
@@ -142,7 +143,7 @@ class CMDUI():
             widget_yoffset += widget.height
 
 
-class Widget():
+class Widget:
 
 
     def __init__(self, cmdui_obj, x=0, y=0):
@@ -229,7 +230,7 @@ class Widget():
 
         offfsssss = 0
 
-        for i, widget in enumerate(self.packed_widgets):
+        for _, widget in enumerate(self.packed_widgets):
             cur.move((winw // 2) - (widget.width // 2), start+offfsssss)
 
             #widget.undraw()
@@ -491,7 +492,7 @@ class DrawPad(Widget):
     def generate_pad(self):
         pad = ["┌──" + "─"*(self.width-6) + "──┐\n"]
 
-        for i in range(self.height-2):
+        for _ in range(self.height-2):
             pad.append("│  " + " "*(self.width-6) + "  │\n")
 
         pad.append("└──" + "─"*(self.width-6) + "──┘")
@@ -534,9 +535,8 @@ def get_origin():
    return (x1 + x_offset, y1 + y_offset)
 
 
-def get_window_position_and_size():
-    global win_listener
-    rect = win32gui.GetWindowRect(cmdui.win_listener.hwnd) # x1, y1, x2, y2
+def get_window_position_and_size(self):
+    rect = win32gui.GetWindowRect(self.win_listener.hwnd) # x1, y1, x2, y2
     return rect
 
 
@@ -733,19 +733,3 @@ except Exception as e:
 
 
 """
-
-
-cmdui = CMDUI()
-
-
-but1 = CMDButton(cmdui, "   Button One   ", 24, 6)
-but1.pack()
-
-input1 = CMDInput(cmdui, "   Input Some Text!   ")
-input1.pack()
-
-
-cmdui.mainloop()
-
-
-input()

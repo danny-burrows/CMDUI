@@ -7,7 +7,7 @@ import threading
 import win32gui
 import win32process
 
-import curser_position as cur
+from . import curser_position as cur
 
 
 import sys
