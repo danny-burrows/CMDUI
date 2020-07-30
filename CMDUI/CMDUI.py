@@ -1,209 +1,91 @@
-import os
-import sys
-import time
-import win32gui
-import threading
-from pynput.mouse import Listener, Controller
-
-from . import new_window_listener
-from . import control_quickedit
-
-from . import curser_position as cur
-from . import color_console as cons
-
-
-os.system("color a")
-default_colors = cons.get_text_attr()
-default_bg = default_colors & 0x0070
-default_fg = default_colors & 0x0007
-
-# CONSTS...
-
-# Charicters
-char_height = 16 # pixels
-char_width = 8 # pixels
-
-# CMD
-x_offset = 8 # pixels (from left hand besel)
-y_offset = 32 # pixels (including menu bar)
-
-"""BOX CHARS
-│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌
-"""
-##def scribble(x, y):
-##    x1, y1, _, _ = get_window_position_and_size()
-##
-##    manual_correct_x = 1
-##    manual_correct_y = 2
-##
-##    cur.move(((x - x1)//char_width)-manual_correct_x, ((y - y1)//char_height)-manual_correct_y)
-##    print("X")
-
+from .consolemanager import ConsoleManager
 
 
 class CMDUI:
 
-
+    
     def __init__(self):
-        self.win_listener = new_window_listener.Resize_Listener(on_resize=self.on_window_resize)
-        self.winpos_listener = new_window_listener.Position_Listener(on_move=self.on_window_move)
-        self.mouse_listener = Listener(on_move=self.on_move, on_click=self.on_click, on_scroll=self.on_scroll)
+        self.console_manager = ConsoleManager(on_move=self.on_mouse_move, 
+                                              on_click=self.on_mouse_click,
+                                              on_resize=self.on_window_resize)
 
         self.widgets = []
         self.packed_widgets = []
-        self.mouse_down = False
-        self.window_width = self.win_listener.term_size[0]
-        self.window_height = self.win_listener.term_size[1]
 
-        self.last_resize_time = time.time()
+        self.console_manager.init_console_output()
 
-        self.resizing = False
-
-        self.xx = 0
-
-        self.nob = True
-
-
+        self.window_width = self.console_manager.console_size[0]
+        self.window_height = self.console_manager.console_size[1]
+    
+    
     def mainloop(self):
-        os.system("cls && color a")
-        cmd_obj = control_quickedit.CMD_Object()
         try:
-            cmd_obj.disable_quickedit()
+            self.console_manager.start()
 
-            # Initial building widgets!
+            # (DISABLED FOR DEBUG)
+            #self.console_manager.cursor_visable(False)
+
+            # Initially building widgets!
             self.update_pack()
 
-
-            # Starting all listeners!
-            self.win_listener.start()
-            self.winpos_listener.start()
-            self.mouse_listener.start()
-            self.mouse_listener.join()
+            self.console_manager.join()
         except (Exception, KeyboardInterrupt) as e:
-            self.win_listener.stop()
-            self.winpos_listener.stop()
-            self.mouse_listener.stop()
-            cmd_obj.enable_quickedit()
-            os.system("color 7")
+            self.console_manager.stop()
             raise e
 
 
-    def on_move(self, x, y):
-        # print("Mouse moved to ({0}, {1})".format(x, y))
-
+    def on_mouse_move(self, x, y):
+        self.console_manager.print_pos(0, 3, f'Mouse Moved {x}, {y}\t\t')
         for widget in self.packed_widgets:
-            widget.update_button(x, y)
-
-        # if mouse_down:
-        #     wid_han.pad.update_pad(x, y)
+            widget.update_widget(x, y)
 
 
-
-    def on_click(self, x, y, button, pressed):
-        self.mouse_down = not self.mouse_down
-
-        if pressed:
-            # print('Mouse clicked at ({0}, {1}) with {2}'.format(x, y, button))
-
+    def on_mouse_click(self, x, y, button, pressed):
+        self.console_manager.print_pos(0, 2, f'Mouse Clicked {x}, {y} {button} {pressed}\t\t')
+        if pressed == 1 and button == 1:
             for widget in self.packed_widgets:
-                if widget.is_clicked(x, y):
-                    cur.move(0, 1)
-                    print("Pressed", widget.text)
+                    if widget.is_clicked(x, y):
+                        widget.draw_pressed()
 
+        elif not pressed:
+            # released buttons draw all normal
+            self.console_manager.print_pos(0, 8, f'Mouse Released {x}, {y}\t\t')
 
-    def on_scroll(self, x, y, dx, dy):
-        raise Exception("Quitting Program On Scroll!")
-        # print('Mouse scrolled at ({0}, {1})({2}, {3})'.format(x, y, dx, dy))
-
-
-    def on_window_move(self, x, y):
-        pass
-        #print("MOVED:", x, y)
-
-    
-    def check_for_resize(self, w, h):
-        time.sleep(0.5)
-
-        time_since_last_resize = time.time() - self.last_resize_time
-        # print(time_since_last_resize)###
-
-        if not time_since_last_resize > 0.5:
-            return        
-
-        #print(self.resizing)###
-
-        #print("RESIZE TIME")###
-        self.resizing = False
-
-        # Ok ok ok so sometimes because we are using threads two resizes can 
-        # trigger at once causing a glitch. The following "self.nob" is the 
-        # most gank fix I've ever written but somehow it works oh god im sorry 
-        # please dont smite me down...
-
-        if self.nob:
-            self.nob = False
-            #print("RESOOS")###
-            self.window_width = w
-            self.window_height = h
             self.update_pack()
-            self.nob = True
-        else:
-            pass
 
-    
-    def on_window_resize(self, w, h):
-        self.xx += 1
-        #print(self.xx)###
-        #print(self.resizing)###
+            # for widget in self.packed_widgets:
+            #     widget.draw_hover()
+            #     pass
 
-        if self.resizing:
-            self.last_resize_time = time.time()
-            threading.Thread(target=self.check_for_resize, args=(w, h)).start()
-            return
 
-        os.system("cls")
-
-        #print(self.xx)###
-        #print(self.resizing)###
-
-        self.resizing = True
-        return self.on_window_resize(w, h)
-        #threading.Thread(target=self.check_for_resize, args=(w, h)).start()
+    def on_window_resize(self):
+        self.window_width = self.console_manager.console_size[0]
+        self.window_height = self.console_manager.console_size[1]
+        self.update_pack()
 
 
     def update_pack(self):
-
-        # Old method of calcing the size of window.
-        #winx1, winy1, winx2, winy2 = get_window_position_and_size()
-        #winw, winh = winx2-winx1, winy2-winy1
-        #winw, winh = depixelize(winw-x_offset, winh-y_offset)
-
-        total_space = sum((widget.height for widget in self.packed_widgets))
-        start = (self.window_height // 2) - (total_space // 2)
+        widget_total_space = sum((widget.height for widget in self.packed_widgets))
+        widgets_start = (self.window_height // 2) - (widget_total_space // 2)
 
         widget_yoffset = 0
 
-        for _, widget in enumerate(self.packed_widgets):
-
+        for widget in self.packed_widgets:
+            
             widget.undraw()
 
             widget.x = (self.window_width // 2) - (widget.width // 2)
-            widget.y = start+widget_yoffset
+            widget.y = widgets_start+widget_yoffset
 
             widget.draw()
 
             widget_yoffset += widget.height
-
-    def get_window_position_and_size(self):
-        rect = win32gui.GetWindowRect(self.win_listener.hwnd) # x1, y1, x2, y2
-        return rect
 
 
 class Widget:
 
 
     def __init__(self, cmdui_obj, x=0, y=0):
-
         cmdui_obj.widgets.append(self)
         self.cmdui_obj = cmdui_obj
 
@@ -211,145 +93,81 @@ class Widget:
         self.y = y
         self.width = 0
         self.height = 0
+
+        self.hovered = False
+        self.active = False
         self.display = ""
 
-
-    def draw(self):
-        winx1, winy1, winx2, winy2 = self.cmdui_obj.get_window_position_and_size()
-
-        winw, winh = winx2 - winx1, winy2 - winy1
-        winw, winh = depixelize(winw-x_offset, winh-y_offset)
-
-
-        y_coord = 0
-        if self.y+self.height >= winh-3:
-            y_coord = winh - (self.height+3)
-        elif self.y <= 0:
-            y_coord = 0
-        else:
-            y_coord = self.y
-
-        for i in range(len(self.display)):
-            x_coord = 0
-            if self.x+self.width >= winw - 5:
-                x_coord = winw - self.width - 5
-            elif self.x <= 0:
-                x_coord = 0
-            else:
-                x_coord = self.x
-
-
-            cur.move(x_coord, y_coord+i)
-            print(self.display[i])
-
-
-    def undraw(self):
-        winx1, winy1, winx2, winy2 = self.cmdui_obj.get_window_position_and_size()
-
-        winw, winh = winx2 - winx1, winy2 - winy1
-        winw, winh = depixelize(winw-x_offset, winh-y_offset)
-
-        y_coord = 0
-        if self.y+self.height >= winh-3:
-            y_coord = winh - (self.height+3)
-        elif self.y <= 0:
-            y_coord = 0
-        else:
-            y_coord = self.y
-
-        for i in range(len(self.display)):
-            x_coord = 0
-            if self.x+self.width >= winw - 5:
-                x_coord = winw - self.width - 5
-            elif self.x <= 0:
-                x_coord = 0
-            else:
-                x_coord = self.x
-
-            cur.move(x_coord, y_coord+i)
-            print(" "*len(self.display[i]))
-
-
-    def update_pack(self):
-
-        self.undraw()
-
-        winx1, winy1, winx2, winy2 = self.cmdui_obj.get_window_position_and_size()
-
-        winw, winh = winx2-winx1, winy2-winy1
-        winw, winh = depixelize(winw-x_offset, winh-y_offset)
-
-        total_space = sum((widget.height for widget in self.packed_widgets))
-
-
-        start = (winh // 2) - (total_space // 2)
-
-        offfsssss = 0
-
-        for _, widget in enumerate(self.packed_widgets):
-            cur.move((winw // 2) - (widget.width // 2), start+offfsssss)
-
-            #widget.undraw()
-
-            widget.x = (winw // 2) - (widget.width // 2)
-            widget.y = start+offfsssss
-
-            widget.draw()
-
-            offfsssss += widget.height
-
-        """
-        yy_offset = -(len(self.packed_widgets)/2)+0.5
-        if len(self.packed_widgets) % 2 == 0:
-            yy_offset -= 0.5
-        yy_offset = int(yy_offset)
-
-
-        yy_offset = -(len(self.packed_widgets)/2)+0.5
-        if len(self.packed_widgets) % 2 == 0:
-            yy_offset -= 0.5
-        yy_offset = int(yy_offset)
-
-        ###############################
-        self.undraw()
-        ###############################
-
-        for i, widget in enumerate(self.packed_widgets):
-
-            #widget.undraw()
-
-            widget.x = (winw // 2) - (widget.width // 2)
-            widget.y = ((winh // 2) - (widget.height // 2)) + ((yy_offset+i)*3)
-
-            widget.draw()
-        """
-
+    
     def pack(self):
         if self not in self.cmdui_obj.packed_widgets:
             self.cmdui_obj.packed_widgets.append(self)
     
-    
-    # Return a tuple with the pixel origin.
-    def get_origin(self):
-        x1, y1, _, _ = self.cmdui_obj.get_window_position_and_size()
-        return (x1 + x_offset, y1 + y_offset)
 
-    def check_inside_window(self, x, y):
-        win_pos = self.cmdui_obj.get_window_position_and_size()
-        if x > win_pos[0] and x < win_pos[2] and y > win_pos[1] and y < win_pos[3]:
+    def draw(self):
+        winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height 
+
+        y_coord = 0
+        if self.y+self.height >= winh-3:
+            y_coord = winh - (self.height+3)
+        elif self.y <= 0:
+            y_coord = 0
+        else:
+            y_coord = self.y
+
+        for i in range(len(self.display)):
+            x_coord = 0
+            if self.x+self.width >= winw - 5:
+                x_coord = winw - self.width - 5
+            elif self.x <= 0:
+                x_coord = 0
+            else:
+                x_coord = self.x
+
+
+            self.cmdui_obj.console_manager.print_pos(x_coord, y_coord+i, self.display[i])
+
+
+    def undraw(self):
+        winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height
+
+        y_coord = 0
+        if self.y+self.height >= winh-3:
+            y_coord = winh - (self.height+3)
+        elif self.y <= 0:
+            y_coord = 0
+        else:
+            y_coord = self.y
+
+        for i in range(len(self.display)):
+            x_coord = 0
+            if self.x+self.width >= winw - 5:
+                x_coord = winw - self.width - 5
+            elif self.x <= 0:
+                x_coord = 0
+            else:
+                x_coord = self.x
+
+            self.cmdui_obj.console_manager.print_pos(x_coord, y_coord+i, " "*len(self.display[i]))
+
+
+    def check_inside(self, x, y, obj):
+        if x >= obj.x and x < obj.x+obj.width and \
+           y >= obj.y and y < obj.y+obj.height:
             return True
         else:
             return False
 
-    def check_inside(self, x, y, obj):
-        if not self.check_inside_window(x, y):
-            return False
 
-        pix_width, pix_height = pixelize(obj.width, obj.height)
-        pix_x, pix_y = pixelize(obj.x, obj.y)
-        ox, oy = self.get_origin()
+    def update_widget(self, x, y):
+        if self.check_inside(x, y, self) and self.hovered == False:
+            self.hovered = True
+        elif not self.check_inside(x, y, self) and self.hovered == True:
+            self.hovered = False
 
-        if x > (ox+pix_x) and x < (ox+pix_x+pix_width) and y > (oy+pix_y) and y < (oy+pix_y+pix_height):
+
+    def is_clicked(self, x, y):
+        if self.check_inside(x, y, self):
             return True
         else:
             return False
@@ -357,124 +175,70 @@ class Widget:
 
 class CMDButton(Widget):
 
+
     def __init__(self, cmdui_obj, text, x=0, y=0):
-        super().__init__(cmdui_obj, x=x, y=y)
-
-        self.active = False
-
-        self.x = x
-        self.y = y
-        self.width = len(text) + 6
-        self.height = 3
+        super().__init__(cmdui_obj, x, y)
 
         self.text = text
 
         self.display = self.generate_button(text)
-        self.display_action = self.generate_action_button(text)
+        self.display_active = self.generate_active_button(text)
+
+        self.width = len(self.display[0])
+        self.height = len(self.display)
 
 
     def generate_button(self, text):
-        top = "┌──" + "─"*len(text) + "──┐"
-        middle = "│  " + text + "  │"
-        bottom = "└──" + "─"*len(text) + "──┘"
-        return (top, middle, bottom)
+        top = f'┌─{"─"*len(text)}─┐'
+        mid = f'│ {    text     } │'
+        btm = f'└─{"─"*len(text)}─┘'
+
+        return (top, mid, btm)
 
 
-    def generate_action_button(self, text):
-        top = "╔══" + "═"*len(text) + "══╗"
-        middle = "║  " + text + "  ║"
-        bottom = "╚══" + "═"*len(text) + "══╝"
-        return (top, middle, bottom)
+    def generate_active_button(self, text):
+        top = f'╔═{"═"*len(text)}═╗'
+        mid = f'║ {    text     } ║'
+        btm = f'╚═{"═"*len(text)}═╝'
 
-##    def undraw(self, winx1=0, winy1=0, winx2=0, winy2=0):
-##        if not winx1+winy1+winx2+winy2:
-##            winx1, winy1, winx2, winy2 = get_window_position_and_size()
-##
-##        winw, winh = winx2 - winx1, winy2 - winy1
-##        winw, winh = depixelize(winw-x_offset, winh-y_offset)
-##
-##        y_coord = 0
-##        if self.y+self.height >= winh-3:
-##            y_coord = winh - (self.height+3)
-##        elif self.y <= 0:
-##            y_coord = 0
-##        else:
-##            y_coord = self.y
-##
-##        for i in range(len(self.display)):
-##            x_coord = 0
-##            if self.x+self.width >= winw - 5:
-##                x_coord = winw - self.width - 5
-##            elif self.x <= 0:
-##                x_coord = 0
-##            else:
-##                x_coord = self.x
-##
-##            cur.move(x_coord, y_coord+i)
-##            print(" "*len(self.display[i]))
-##
-##
-##    def draw(self, winx1=0, winy1=0, winx2=0, winy2=0):
-##        if not winx1+winy1+winx2+winy2:
-##            winx1, winy1, winx2, winy2 = get_window_position_and_size()
-##
-##        winw, winh = winx2 - winx1, winy2 - winy1
-##        winw, winh = depixelize(winw-x_offset, winh-y_offset)
-##
-##
-##        y_coord = 0
-##        if self.y+self.height >= winh-3:
-##            y_coord = winh - (self.height+3)
-##        elif self.y <= 0:
-##            y_coord = 0
-##        else:
-##            y_coord = self.y
-##
-##        for i in range(len(self.display)):
-##            x_coord = 0
-##            if self.x+self.width >= winw - 5:
-##                x_coord = winw - self.width - 5
-##            elif self.x <= 0:
-##                x_coord = 0
-##            else:
-##                x_coord = self.x
-##
-##
-##            cur.move(x_coord, y_coord+i)
-##            print(self.display[i])
+        return (top, mid, btm)
+
 
     def draw_hover(self):
-        self.display = self.generate_action_button(self.text)
+        self.display = self.generate_active_button(self.text)
         self.draw()
+
 
     def draw_pressed(self):
-        sys.stdout.flush()
-        cons.set_text_attr(cons.FOREGROUND_RED | default_bg |
-                        cons.FOREGROUND_INTENSITY)
+        FOREGROUND_INTENSITY = 0x0008
 
-        self.display = self.generate_action_button(self.text)
+        cur_color = self.cmdui_obj.console_manager.console_output.GetConsoleScreenBufferInfo()["Attributes"]
+
+        # Bitwise XOR using FOREGROUND_INTENSITY; Keeps the colour, inverts the intensity.
+        self.cmdui_obj.console_manager.set_color(cur_color ^ FOREGROUND_INTENSITY)
+
+        #self.display = self.generate_active_button(self.text)
         self.draw()
 
-        sys.stdout.flush()
-        cons.set_text_attr(default_fg | default_bg |
-                        cons.FOREGROUND_INTENSITY)
+        self.cmdui_obj.console_manager.set_color(cur_color)
 
 
-
-    def update_button(self, x, y):
-        if self.check_inside(x, y, self) and self.active == False:
+    def update_widget(self, x, y):
+        if self.check_inside(x, y, self) and self.hovered == False:
+            self.hovered = True
             self.draw_hover()
-            self.active = True
-        elif not self.check_inside(x, y, self) and self.active == True:
+        elif not self.check_inside(x, y, self) and self.hovered == True:
+            self.hovered = False
             self.display = self.generate_button(self.text)
             self.draw()
-            self.active = False
 
+    
     def is_clicked(self, x, y):
+        import time
         if self.check_inside(x, y, self):
             self.draw_pressed()
-            time.sleep(0.05)
-            self.draw_hover()
+            #time.sleep(0.15)
+            #self.draw_hover()
             return True
         else:
             return False
@@ -482,82 +246,92 @@ class CMDButton(Widget):
 
 class CMDInput(Widget):
 
+    
     def __init__(self, cmdui_obj, text, x=0, y=0):
         super().__init__(cmdui_obj, x=x, y=y)
-        self.active = False
-
-        self.x = x
-        self.y = y
-        self.width = len(text) + 6
-        self.height = 3
-
-        self.cmdui_obj = cmdui_obj
 
         self.text = text
 
-        self.display = self.generate_button(text)
-        self.display_action = self.generate_action_button(text)
+        self.display = self.generate_input(text)
+        self.display_active = self.generate_hovered_input(text)
+
+        self.width = len(self.display[0])
+        self.height = len(self.display)
+
+    
+    def generate_input(self, text):
+        top = f'┌─{"─"*len(text)}─┐'
+        mid = f'│ {    text     } │'
+        btm = f'└─{"─"*len(text)}─┘'
+
+        return (top, mid, btm)
 
 
-    def generate_button(self, text):
-        top = "┌──" + "─"*len(text) + "──┐"
-        middle = "│  " + text + "  │"
-        bottom = "└──" + "─"*len(text) + "──┘"
-        return (top, middle, bottom)
+    def generate_hovered_input(self, text):
+        top = f'╔═{"═"*len(text)}═╗'
+        mid = f'║ {    text     } ║'
+        btm = f'╚═{"═"*len(text)}═╝'
 
+        return (top, mid, btm)
 
-    def generate_action_button(self, text):
-        top = "╔══" + "═"*len(text) + "══╗"
-        middle = "║  " + text + "  ║"
-        bottom = "╚══" + "═"*len(text) + "══╝"
-        return (top, middle, bottom)
+    
+    def generate_active_input(self, text):
+        top = f'╔═{"═"*len(text)}═╗'
+        mid = f'║ {" "*len(text)} ║'
+        btm = f'╚═{"═"*len(text)}═╝'
+
+        return (top, mid, btm)
+
 
     def draw_hover(self):
-        self.display = self.generate_action_button(self.text)
+        self.display = self.generate_hovered_input(self.text)
         self.draw()
+
 
     def draw_pressed(self):
-        sys.stdout.flush()
-        cons.set_text_attr(cons.FOREGROUND_RED | default_bg |
-                        cons.FOREGROUND_INTENSITY)
+        FOREGROUND_INTENSITY = 0x0008
 
-        self.display = self.generate_action_button(self.text)
+        cur_color = self.cmdui_obj.console_manager.get_color()
+
+        # Bitwise XOR using FOREGROUND_INTENSITY; Keeps the colour, inverts the intensity.
+        self.cmdui_obj.console_manager.set_color(cur_color ^ FOREGROUND_INTENSITY)
+
         self.draw()
 
+        # Handle user input; currently needs rewrite.
+        self.handle_input()
 
-        input_thread = threading.Thread(target=self.handle_input)
-        input_thread.start()
-        input_thread.join()
+        self.cmdui_obj.console_manager.set_color(cur_color)
 
-        sys.stdout.flush()
-        cons.set_text_attr(default_fg | default_bg |
-                        cons.FOREGROUND_INTENSITY)
-
+    
     def handle_input(self):
-        cur.move(self.x+1, self.y+1)
+        # We can use the new console manager input buffer to fix the freezing with this!
+
+        self.cmdui_obj.console_manager.print_pos(self.x+1, self.y+1, "")
+
+        #cur.move(self.x+1, self.y+1)
         user_input = input()
 
-        cur.move(self.x+1, self.y+1)
-        print(" "*len(user_input))
-
-        cur.move(0, 0)
-        print("User said:", user_input)
+        self.cmdui_obj.console_manager.print_pos(self.x+1, self.y+1, ' '*len(user_input))
+        self.cmdui_obj.console_manager.print_pos(0, 0, f'User said: {user_input}')
 
 
-    def update_button(self, x, y):
-        if self.check_inside(x, y, self) and self.active == False:
+    def update_widget(self, x, y):
+        if self.check_inside(x, y, self) and self.hovered == False:
+            self.hovered = True
             self.draw_hover()
-            self.active = True
-        elif not self.check_inside(x, y, self) and self.active == True:
-            self.display = self.generate_button(self.text)
+        elif not self.check_inside(x, y, self) and self.hovered == True:
+            self.hovered = False
+            self.display = self.generate_input(self.text)
             self.draw()
-            self.active = False
 
+    
     def is_clicked(self, x, y):
+        import time
         if self.check_inside(x, y, self):
             self.draw_pressed()
-            time.sleep(0.05)
-            self.draw_hover()
+            #time.sleep(0.15)
+            #self.draw_hover()
             return True
         else:
             return False
@@ -565,207 +339,38 @@ class CMDInput(Widget):
 
 class DrawPad(Widget):
 
+
     def __init__(self, cmdui_obj, x=0, y=0, h=1, w=1):
-        self.x = x
-        self.y = y
+        super().__init__(cmdui_obj, x=x, y=y)
+        
         self.width = w
         self.height = h
 
-        self.cmdui_obj = cmdui_obj
-
         self.display = self.generate_pad()
+
 
     def generate_pad(self):
         pad = ["┌──" + "─"*(self.width-6) + "──┐\n"]
-
         for _ in range(self.height-2):
             pad.append("│  " + " "*(self.width-6) + "  │\n")
-
         pad.append("└──" + "─"*(self.width-6) + "──┘")
         return pad
 
+
     def draw(self):
         for i in range(len(self.display)):
+            self.cmdui_obj.console_manager.print_pos(self.x, self.y+i, self.display[i])
 
-
-            cur.move(self.x, self.y+i)
-            print(self.display[i])
 
     def undraw(self):
-        for i in reversed(range(len(self.display))):
-            cur.move(self.x+len(self.display[i]), self.y+i)
-            print("\b \b"*len(self.display[i]))
+        for i in range(len(self.display)):
+            self.cmdui_obj.console_manager.print_pos(self.x+len(self.display[i]), self.y+i, " "*len(self.display[i]))
 
-    def update_pad(self, x, y):
+
+    def draw_pressed(self):
+        pass
+
+
+    def update_widget(self, x, y):
         if self.check_inside(x, y, self):
-            x1, y1, _, _ = self.cmdui_obj.get_window_position_and_size()
-
-            manual_correct_x = 1
-            manual_correct_y = 2
-
-            cur.move(((x - x1)//char_width)-manual_correct_x, ((y - y1)//char_height)-manual_correct_y)
-            print("X")
-
-
-# Apply the pixel offset (charictor dimensions in cmd) to two values...
-def pixelize(x, y):
-    return (x*char_width, y*char_height)
-
-def depixelize(x, y):
-    return (x//char_width, y//char_height)
-
-
-
-
-# def get_window_position_and_size(self):
-#     rect = win32gui.GetWindowRect(self.win_listener.hwnd) # x1, y1, x2, y2
-#     return rect
-
-
-
-
-
-
-# def enumHandler(hwnd, args):
-#    pid, hwnds = args
-#    _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
-#    if found_pid == pid and win32gui.IsWindowVisible(hwnd):
-#        hwnds.append(hwnd)
-##
-##
-##def find_windows_from_pid(pid):
-##    hwnds = []
-##    win32gui.EnumWindows(self.enumHandler, (pid, hwnds))
-##    return hwnds
-##
-##
-##def get_window_hwnd():
-##        # Try to get window through current process parent...
-##        # (Checking 'up' from current running python process for an above GUI/py process).
-##        pid = os.getpid()
-##        parent_pid = self.get_parent_pid(pid)
-##        windows = find_windows_from_pid(parent_pid)
-##
-##
-##        # Try to get window through CMD process id...
-##        # (Searching 'down' from every GUI/cmd.exe process, for the current running python process).
-##        if not len(windows):
-##            cmd_processes = os.popen('for /f "tokens=2 delims=," %a in \
-##                                    (\'tasklist /fi "imagename eq cmd.exe" /nh /fo:csv\') \
-##                                    do echo parent=%~a && \
-##                                    wmic process where (ParentProcessId=%~a) get Caption,ProcessId')
-##
-##            # General format of command response is (<> denote non-terminal)...
-##            #
-##            # <random padding>parent=<pid of cmd><random padding><pid of cmd_child_process>
-##            # <random padding><pid of cmd_child_process><random padding>
-##            #
-##            # The above is looped depending on number of cmd processes and cmd_child_processes.
-##            get_cmd_process_info = cmd_processes.read()
-##
-##            for word in get_cmd_process_info.split():
-##                try:
-##                    if int(word) == parent_pid:
-##                        windows = find_windows_from_pid(current_terminal)
-##                        break
-##                except ValueError:
-##                    if word[:7] == "parent=":
-##                        current_terminal = int(word[7:])
-##
-##        # Check that we do have at least one window...
-##        if not len(windows):
-##            raise Exception("Couldn't attach self to CMD! (Try running from file and from CMD).")
-##        elif len(windows) > 1:
-##            raise Exception("Multiple windows detected?!")
-##
-##        return windows[0]
-
-
-##def pack(button, yoffset=0):
-##    winx1, winy1, winx2, winy2 = get_window_position_and_size()
-##    winw, winh = winx2-winx1, winy2-winy1
-##
-##    winw, winh = depixelize(winw-x_offset, winh-y_offset)
-##
-##    button.undraw(winx1, winy1, winx2, winy2)
-##
-##
-##    xx = (winw // 2) - (button.width // 2)
-##    yy = ((winh // 2) - (button.height // 2)) + yoffset
-##    button.x = xx
-##    button.y = yy
-##
-##    button.draw(winx1, winy1, winx2, winy2)
-##
-##    #cur.move(0,0)
-##    #print("X:", xx)
-##    #cur.move(0,1)
-##    #print("Y:", yy)
-
-
-
-""" MAIN FUNC NOW UNEEDED!
-def main():
-    os.system("cls && color a")
-
-    # cur.move(27, 4)
-    # print("Welcome to CMDUI")
-
-    wid_han.but1 = CMDButton("   Button One   ", 24, 6)
-    wid_han.but2 = CMDButton("   Button Two   ", 24, 9)
-    wid_han.but3 = CMDButton("  Button Three  ", 0, 0)
-    wid_han.quitbut = CMDButton("      Quit      ", 24, 15)
-
-    wid_han.inp1 = CMDInput("   Input Text   ")
-
-    wid_han.pad = DrawPad(50, 6, 12, 30)
-
-
-
-
-    global win_listener
-    win_listener = new_window_listener.Resize_Listener(on_resize=on_window_resize)
-    winpos_listener = new_window_listener.Position_Listener(on_move=on_window_move)
-
-
-
-    wid_han.but1.pack()
-    wid_han.but2.pack()
-    wid_han.but3.pack()
-    wid_han.quitbut.pack()
-
-    wid_han.inp1.pack()
-
-    wid_han.pad.pack()
-
-
-    #pad.draw()
-
-    #but1.draw()
-    #but2.draw()
-
-    #but3.draw()
-    #quitbut.draw()
-
-    mouse = Controller()
-
-    global mouse_down
-    mouse_down = False
-
-
-    try:
-
-        #hwnd = win_listener.hwnd
-        win_listener.start()
-        winpos_listener.start()
-
-        with Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll) as listener:
-            listener.join()
-
-    except (Exception, KeyboardInterrupt) as e:
-        win_listener.stop()
-        listener.stop()
-        winpos_listener.stop()
-        raise e
-
-"""
+            self.cmdui_obj.console_manager.print_pos(x, y, "X")
