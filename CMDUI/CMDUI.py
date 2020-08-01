@@ -26,7 +26,7 @@ class CMDUI:
             #self.console_manager.cursor_visable(False)
 
             # Initially building widgets!
-            self.update_pack()
+            self.initial_pack()
 
             self.console_manager.join()
         except (Exception, KeyboardInterrupt) as e:
@@ -35,13 +35,13 @@ class CMDUI:
 
 
     def on_mouse_move(self, x, y):
-        self.console_manager.print_pos(0, 3, f'Mouse Moved {x}, {y}\t\t')
+        # self.console_manager.print_pos(0, 3, f'Mouse Moved {x}, {y}\t\t')
         for widget in self.packed_widgets:
             widget.update_widget(x, y)
 
 
     def on_mouse_click(self, x, y, button, pressed):
-        self.console_manager.print_pos(0, 2, f'Mouse Clicked {x}, {y} {button} {pressed}\t\t')
+        # self.console_manager.print_pos(0, 2, f'Mouse Clicked {x}, {y} {button} {pressed}\t\t')
         if pressed == 1 and button == 1:
             for widget in self.packed_widgets:
                     if widget.is_clicked(x, y):
@@ -49,7 +49,7 @@ class CMDUI:
 
         elif not pressed:
             # released buttons draw all normal
-            self.console_manager.print_pos(0, 8, f'Mouse Released {x}, {y}\t\t')
+            # self.console_manager.print_pos(0, 8, f'Mouse Released {x}, {y}\t\t')
 
             self.update_pack()
 
@@ -62,6 +62,21 @@ class CMDUI:
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
         self.update_pack()
+
+
+    def initial_pack(self):
+        widget_total_space = sum((widget.height for widget in self.packed_widgets))
+        widgets_start = (self.window_height // 2) - (widget_total_space // 2)
+
+        widget_yoffset = 0
+
+        for widget in self.packed_widgets:
+            widget.x = (self.window_width // 2) - (widget.width // 2)
+            widget.y = widgets_start+widget_yoffset
+
+            widget.draw()
+
+            widget_yoffset += widget.height
 
 
     def update_pack(self):
@@ -107,47 +122,20 @@ class Widget:
     def draw(self):
         winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height 
 
-        y_coord = 0
-        if self.y+self.height >= winh-3:
-            y_coord = winh - (self.height+3)
-        elif self.y <= 0:
-            y_coord = 0
-        else:
-            y_coord = self.y
+        x_coord = self.x if self.x > 0 and self.x + self.width < winw else 0
+        y_coord = self.y if self.y > 0 and self.y + self.height < winh else 0
 
         for i in range(len(self.display)):
-            x_coord = 0
-            if self.x+self.width >= winw - 5:
-                x_coord = winw - self.width - 5
-            elif self.x <= 0:
-                x_coord = 0
-            else:
-                x_coord = self.x
-
-
             self.cmdui_obj.console_manager.print_pos(x_coord, y_coord+i, self.display[i])
 
 
     def undraw(self):
         winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height
 
-        y_coord = 0
-        if self.y+self.height >= winh-3:
-            y_coord = winh - (self.height+3)
-        elif self.y <= 0:
-            y_coord = 0
-        else:
-            y_coord = self.y
+        x_coord = self.x if self.x > 0 and self.x + self.width < winw else 0
+        y_coord = self.y if self.y > 0 and self.y + self.height < winh else 0
 
         for i in range(len(self.display)):
-            x_coord = 0
-            if self.x+self.width >= winw - 5:
-                x_coord = winw - self.width - 5
-            elif self.x <= 0:
-                x_coord = 0
-            else:
-                x_coord = self.x
-
             self.cmdui_obj.console_manager.print_pos(x_coord, y_coord+i, " "*len(self.display[i]))
 
 
@@ -212,7 +200,7 @@ class CMDButton(Widget):
     def draw_pressed(self):
         FOREGROUND_INTENSITY = 0x0008
 
-        cur_color = self.cmdui_obj.console_manager.console_output.GetConsoleScreenBufferInfo()["Attributes"]
+        cur_color = self.cmdui_obj.console_manager.get_color()
 
         # Bitwise XOR using FOREGROUND_INTENSITY; Keeps the colour, inverts the intensity.
         self.cmdui_obj.console_manager.set_color(cur_color ^ FOREGROUND_INTENSITY)
@@ -313,7 +301,7 @@ class CMDInput(Widget):
         user_input = input()
 
         self.cmdui_obj.console_manager.print_pos(self.x+1, self.y+1, ' '*len(user_input))
-        self.cmdui_obj.console_manager.print_pos(0, 0, f'User said: {user_input}')
+        # self.cmdui_obj.console_manager.print_pos(0, 0, f'User said: {user_input}')
 
 
     def update_widget(self, x, y):
@@ -374,3 +362,52 @@ class DrawPad(Widget):
     def update_widget(self, x, y):
         if self.check_inside(x, y, self):
             self.cmdui_obj.console_manager.print_pos(x, y, "X")
+
+
+class CMDMenu(Widget):
+
+
+    def __init__(self, cmdui_obj):
+        super().__init__(cmdui_obj, x=0, y=0)
+
+        self.width = self.cmdui_obj.window_width
+        self.height = 2
+        
+        self.options = []
+
+        self.display = self.generate_menu()
+
+
+    def generate_menu(self):
+        btns = ''.join(f' {option.text} │' for option in self.options)
+        btm = ''.join(f'─{"─"*len(option.text)}─┴' for option in self.options)
+
+        if len(btns) < self.width:
+            btm = f'{btm}{"─"*(self.width - len(btm))}'
+
+        return (btns, btm)
+
+
+    def draw(self):
+        self.x = 0
+        self.y = 0
+        self.width = self.cmdui_obj.window_width
+        self.display = self.generate_menu()
+
+        for i in range(len(self.display)):
+            self.cmdui_obj.console_manager.print_pos(self.x, self.y+i, self.display[i])
+
+
+    def undraw(self):
+        for i in range(len(self.display)):
+            self.cmdui_obj.console_manager.print_pos(0, self.y+i, " "*len(self.display[i]))
+
+
+class CMDMenuOption:
+
+
+    def __init__(self, cmdmenu_obj, text):
+
+        self.text = text
+
+        cmdmenu_obj.options.append(self)

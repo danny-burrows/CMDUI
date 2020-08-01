@@ -44,8 +44,11 @@ class ConsoleManager(StoppableThread):
 
     def print_pos(self, x, y, text):
         pos = win32console.PyCOORDType(x, y)
-        self.console_output.SetConsoleCursorPosition(pos)
-        self.console_output.WriteConsole(f'{text}\n')
+        try:
+            self.console_output.SetConsoleCursorPosition(pos)
+            self.console_output.WriteConsole(f'{text}\n')
+        except pywintypes.error:
+            pass
 
     
     def color_pos(self, x, y, color):
@@ -202,8 +205,8 @@ class ConsoleManager(StoppableThread):
         self.set_buffersize_to_windowsize()
 
         # The following two lines are here to help debug the resize/mouse event queue bug...
-        self.resize_num += 1
-        self.print_pos(0, 2, f'WIN RESIZE {self.resize_num}')
+        # self.resize_num += 1
+        # self.print_pos(0, 2, f'WIN RESIZE {self.resize_num}')
 
         self.on_resize()
 
