@@ -55,9 +55,11 @@ class ResizeListener(StoppableThread):
             raise Exception('Couldn\'t hook window resize event! Reason: SetWinEventHook failed.')
 
         msg = ctypes.wintypes.MSG()
-        while self.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0) != 0 and not self.stopped():
-            self.user32.TranslateMessageW(msg)
-            self.user32.DispatchMessageW(msg)
+        self.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
+        
+        # while self.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0) != 0 and not self.stopped():
+        #     self.user32.TranslateMessageW(msg)
+        #     self.user32.DispatchMessageW(msg)
 
         self.user32.UnhookWinEvent(self.hook)
         self.ole32.CoUninitialize()

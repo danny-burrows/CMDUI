@@ -120,20 +120,20 @@ class Widget:
     
 
     def draw(self):
-        winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height 
+        # winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height 
 
-        x_coord = self.x if self.x > 0 and self.x + self.width < winw else 0
-        y_coord = self.y if self.y > 0 and self.y + self.height < winh else 0
+        x_coord = self.x if self.x > 0 else 0
+        y_coord = self.y if self.y > 0 else 0
 
         for i in range(len(self.display)):
             self.cmdui_obj.console_manager.print_pos(x_coord, y_coord+i, self.display[i])
 
 
     def undraw(self):
-        winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height
+        # winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height
 
-        x_coord = self.x if self.x > 0 and self.x + self.width < winw else 0
-        y_coord = self.y if self.y > 0 and self.y + self.height < winh else 0
+        x_coord = self.x if self.x > 0 else 0
+        y_coord = self.y if self.y > 0 else 0
 
         for i in range(len(self.display)):
             self.cmdui_obj.console_manager.print_pos(x_coord, y_coord+i, " "*len(self.display[i]))
@@ -225,8 +225,6 @@ class CMDButton(Widget):
         import time
         if self.check_inside(x, y, self):
             self.draw_pressed()
-            #time.sleep(0.15)
-            #self.draw_hover()
             return True
         else:
             return False

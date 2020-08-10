@@ -86,12 +86,10 @@ class ConsoleManager(StoppableThread):
 
 
     def run(self):
+        self.init_console_input()
+        self.console_output.SetConsoleActiveScreenBuffer()
         try:
-            self.init_console_input()
-            self.console_output.SetConsoleActiveScreenBuffer()
-            
             self.window_resize_listener.start()
-
             self._event_loop()
         except Exception as e:
             self.window_resize_listener.stop()
@@ -175,27 +173,17 @@ class ConsoleManager(StoppableThread):
 
         
     def on_move(self, x, y):
-        self.print(f'MOVE {x}, {y}')
+        pass
 
 
     def on_click(self, x, y, button, pressed):
-        if pressed:
-            if button == 1:
-                self.print(f'L CLICK {x}, {y}')
-            elif button == 2:
-                self.print(f'R CLICK {x}, {y}')
-            elif button == 3:
-                self.print(f'BOTH CLICK {x}, {y}')
-            elif button == 4:
-                self.print(f'MIDDLE CLICK {x}, {y}')
-        else:
-            self.print(f'RELEASE {x}, {y}')
+        pass
 
 
     def on_scroll(self, x, y):
-        self.print(f'SCROLL {x}, {y}')
+        pass
 
-    
+
     def on_resize(self):
         pass
 
