@@ -1,9 +1,11 @@
 # CMDUI
 
-I'm halting development of this project until a means of toggling "Wrap text output on resize" is implemented in ctypes or the C/C++ bindings for windows CMD. At the time of writing, this is doable with the GUI settings in CMD but I have found no way of accessing this feature through the bindings. (Or at least the ones I’ve seen in the documentation.)
+A GUI toolkit for CMD. This is a project to build a really easy-to-use graphical user interface toolkit entirely runnable in the windows console. The usage of this module is inspired by Tkinter as its ease of use makes it one of the easiest ways to create quick GUI's on the fly.
 
-Perhaps prevailing circumstances will compel me to continue with this idea. Hours spent trying to find a hack for the crazy GUI explosion when resizing the window was so far unsuccessful.
+Eventually I aim to mirror the placement methods available in Tkinter such as Pack, Place, and Grid. I would also like to make a version of CMDUI for ANSI code driven terminals with the same easy to use style. 
 
-The idea itself was a fun thought I had while playing fallout 4, a terminal inspired GUI, but I just don't have enough time to get it up and running at the moment. 
+## Current Issues
 
-I have compiled all of my efforts into this folder containing the current build of CMDUI.
+A means of toggling "Wrap text output on resize" really needs to be implemented in the C/C++ bindings for windows and subsequently ctypes or win32console. At the time of writing, this is doable with the GUI settings in CMD but I have found no way of accessing this feature through the bindings. (Or at least the ones I’ve seen in the documentation.)
+
+Due to the aforementioned the GUI has a tendency to explode with artifacts all over the place when the window is resized. The temporary fix I have implemented for this is very unstable and can cause crashes occasionally but I am currently still looking into a better fix for this problem.
