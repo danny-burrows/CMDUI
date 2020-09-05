@@ -73,8 +73,8 @@ class ConsoleManager(StoppableThread):
             )
         )
 
-        default_mode = self.console_input.GetConsoleMode()
-        disable_quickedit_mode = default_mode & (~0x0040)
+        self.default_conin_mode = self.console_input.GetConsoleMode()
+        disable_quickedit_mode = self.default_conin_mode & (~0x0040)
         self.console_input.SetConsoleMode(disable_quickedit_mode)
         self.console_input.SetConsoleMode(win32console.ENABLE_WINDOW_INPUT | win32console.ENABLE_MOUSE_INPUT)
 
@@ -97,6 +97,9 @@ class ConsoleManager(StoppableThread):
             raise e
             
         self.window_resize_listener.stop()
+        self.console_input.SetConsoleMode(self.default_conin_mode)
+        
+        self.console_input.Close()
         self.console_output.Close()
 
         if self.free_console:
