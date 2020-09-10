@@ -36,27 +36,19 @@ class CMDUI:
 
 
     def on_mouse_move(self, x, y):
-        # self.console_manager.print_pos(0, 3, f'Mouse Moved {x}, {y}\t\t')
         for widget in self.packed_widgets:
             widget.update_widget(x, y)
 
 
     def on_mouse_click(self, x, y, button, pressed):
-        # self.console_manager.print_pos(0, 2, f'Mouse Clicked {x}, {y} {button} {pressed}\t\t')
         if pressed == 1 and button == 1:
             for widget in self.packed_widgets:
                     if widget.is_clicked(x, y):
                         widget.draw_pressed()
 
         elif not pressed:
-            # released buttons draw all normal
-            # self.console_manager.print_pos(0, 8, f'Mouse Released {x}, {y}\t\t')
-
+            # Buttons released draw all normal
             self.update_pack()
-
-            # for widget in self.packed_widgets:
-            #     widget.draw_hover()
-            #     pass
 
 
     def on_window_resize(self):
@@ -110,8 +102,6 @@ class Widget:
 
         self.x = x
         self.y = y
-        #self.width = 0
-        #self.height = 0
 
         self.hovered = False
         self.active = False
@@ -124,8 +114,6 @@ class Widget:
     
 
     def draw(self):
-        # winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height 
-
         x_coord = self.x if self.x > 0 else 0
         y_coord = self.y if self.y > 0 else 0
 
@@ -134,8 +122,6 @@ class Widget:
 
 
     def undraw(self):
-        # winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height
-
         x_coord = self.x if self.x > 0 else 0
         y_coord = self.y if self.y > 0 else 0
 
@@ -176,11 +162,7 @@ class CMDLabel(Widget):
         super().__init__(cmdui_obj)
 
         self.text = text
-
         self.display = self.generate_label(text)
-
-        #self.width = len(self.display[0])
-        #self.height = len(self.display)
 
 
     def generate_label(self, text):

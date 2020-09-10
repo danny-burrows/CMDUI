@@ -81,7 +81,7 @@ class ConsoleManager(StoppableThread):
 
 
     def init_console_output(self):
-        """Create a new console output buffer and set it as the active screen buffer."""
+        """Create a new console output buffer."""
 
         self.console_output = win32console.CreateConsoleScreenBuffer()
 
@@ -131,11 +131,6 @@ class ConsoleManager(StoppableThread):
         breakout=False
 
         while not breakout and not self.stopped():
-        
-            # Calling this block the console and can stop resize events from firing...
-            # This is mitigated by the time.sleep at the end of the loop but not
-            # a perfect fix as now a bunch of resize events pile up and have to be
-            # processed after each loop and read input buffer.
 
             num = self.console_input.GetNumberOfConsoleInputEvents()
 
@@ -143,7 +138,6 @@ class ConsoleManager(StoppableThread):
                 time.sleep(0.01)
                 continue
 
-            # input_records = self.console_input.ReadConsoleInput(10) 
             input_records = self.console_input.ReadConsoleInput(num)
             
             for input_record in input_records:
@@ -200,17 +194,6 @@ class ConsoleManager(StoppableThread):
 
     def on_resize(self):
         pass
-
-    
-    # def on_window_resize(self):
-    #     # Buffer size to window size can cause crashes. :/ Need to fix.
-    #     self.set_buffersize_to_windowsize()
-
-    #     # The following two lines are here to help debug the resize/mouse event queue bug...
-    #     # self.resize_num += 1
-    #     # self.print_pos(0, 2, f'WIN RESIZE {self.resize_num}')
-
-    #     # self.on_resize()
 
 
     def checker(self):
@@ -304,17 +287,3 @@ class ConsoleManager(StoppableThread):
                 raise
             free_console=False
         return free_console
-
-
-# def on_click():
-#     pass
-
-# win = ConsoleManager(on_click=on_click)
-# win.start()
-# win.join()
-
-
-# time.sleep(10)
-# win.stop()
-
-# print("FUN TIMES")
