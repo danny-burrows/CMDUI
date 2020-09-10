@@ -17,8 +17,7 @@ class CMDUI:
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
 
-        self.res_c = 0
-    
+        self.res_c = 0    
     
     def mainloop(self):
         try:
@@ -165,7 +164,7 @@ class Widget:
         else:
             return False
 
-
+    
     def draw_pressed(self):
         pass
 
@@ -221,7 +220,7 @@ class CMDButton(Widget):
     def command(self):
         pass
 
-
+      
     def generate_button(self, text):
         top = f'┌─{"─"*len(text)}─┐'
         mid = f'│ {    text     } │'
