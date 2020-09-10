@@ -3,6 +3,7 @@ from .windowresizelistener import ResizeListener
 import win32console
 import pywintypes
 import win32file
+import threading
 import win32con
 import time
 
@@ -21,7 +22,7 @@ class ConsoleManager(StoppableThread):
         self.window_resize_listener = ResizeListener(on_resize=self.on_window_resize)
         self.virtual_keys = self.get_virtual_keys()
 
-        self.resize_num = 0
+        self.res_c = 0
 
 
     def get_color(self):
@@ -90,7 +91,9 @@ class ConsoleManager(StoppableThread):
         self.console_output.SetConsoleActiveScreenBuffer()
         try:
             self.window_resize_listener.start()
-            self._event_loop()
+            t = threading.Thread(target=self._event_loop)
+            t.start()
+            t.join()
         except Exception as e:
             self.window_resize_listener.stop()
             self.console_output.Close()
@@ -133,7 +136,15 @@ class ConsoleManager(StoppableThread):
             # This is mitigated by the time.sleep at the end of the loop but not
             # a perfect fix as now a bunch of resize events pile up and have to be
             # processed after each loop and read input buffer.
-            input_records = self.console_input.ReadConsoleInput(10) 
+
+            num = self.console_input.GetNumberOfConsoleInputEvents()
+
+            if num < 1:
+                time.sleep(0.01)
+                continue
+
+            # input_records = self.console_input.ReadConsoleInput(10) 
+            input_records = self.console_input.ReadConsoleInput(num)
             
             for input_record in input_records:
                 if input_record.EventType == win32console.KEY_EVENT and input_record.KeyDown:
@@ -191,15 +202,41 @@ class ConsoleManager(StoppableThread):
         pass
 
     
-    def on_window_resize(self):
-        # Buffer size to window size can cause crashes. :/ Need to fix.
+    # def on_window_resize(self):
+    #     # Buffer size to window size can cause crashes. :/ Need to fix.
+    #     self.set_buffersize_to_windowsize()
+
+    #     # The following two lines are here to help debug the resize/mouse event queue bug...
+    #     # self.resize_num += 1
+    #     # self.print_pos(0, 2, f'WIN RESIZE {self.resize_num}')
+
+    #     # self.on_resize()
+
+
+    def checker(self):
+        res_n = 0
+
+        self.window_width = self.console_size[0]
+        self.window_height = self.console_size[1]
+
+        for i in range(self.window_height):
+            self.print_pos(0, i, " "*self.window_width)
+
+        while self.res_c != res_n:
+            res_n = self.res_c
+            time.sleep(0.1)
+        
+        self.res_c = 0
+
         self.set_buffersize_to_windowsize()
-
-        # The following two lines are here to help debug the resize/mouse event queue bug...
-        # self.resize_num += 1
-        # self.print_pos(0, 2, f'WIN RESIZE {self.resize_num}')
-
         self.on_resize()
+
+
+    def on_window_resize(self):
+        self.res_c += 1             
+        if self.res_c == 1:
+            t = threading.Thread(target=self.checker)
+            t.start()
 
 
     def set_buffersize_to_windowsize(self):

@@ -1,22 +1,63 @@
-import CMDUI
+import CMDUI as CMD
 
-cmdui = CMDUI.CMDUI()
+cmdui = CMD.CMDUI()
 
-# menu = CMDUI.CMDMenu(cmdui)
+menu = CMD.CMDMenu(cmdui)
 
-# menuOpt = CMDUI.CMDMenuOption(menu, "File")
-# menu.pack()
+menuOpt = CMD.CMDMenuOption(menu, "File")
 
-# menuOpt = CMDUI.CMDMenuOption(menu, "Edit")
-# menu.pack()
+menuOpt = CMD.CMDMenuOption(menu, "Edit")
+menu.pack()
 
-# menuOpt = CMDUI.CMDMenuOption(menu, "Options")
-# menu.pack()
+import time
+import threading
 
-# menuOpt = CMDUI.CMDMenuOption(menu, "Options")
-# menu.pack()
+running = False
 
-but1 = CMDUI.CMDButton(cmdui, "   Button One   ")
+
+def tst():
+    global running
+    tt = time.time()
+
+    but1.undraw()
+
+    but1.text = "Stop"
+    but1.display = but1.generate_button("Stop")
+    
+    while running:
+        lab1.undraw()
+        t = time.time() - tt
+        lab1.display = lab1.generate_label(str(round(t, 2)))
+        cmdui.update_pack()
+        time.sleep(0.01)
+    
+    but1.undraw()
+    but1.text = "Reset"
+    but1.display = but1.generate_button("Reset")
+    cmdui.update_pack()
+
+
+def com2():
+
+    if but1.text == "Reset":
+        lab1.undraw()
+        lab1.display = lab1.generate_label("")
+        
+        but1.undraw()
+        but1.text = "Start"
+        but1.display = but1.generate_button("Start")
+        
+        cmdui.update_pack()
+        return
+
+    global running
+    running = not running
+    threading.Thread(target=tst).start()
+
+lab1 = CMD.CMDLabel(cmdui,  "")
+lab1.pack()
+
+but1 = CMD.CMDButton(cmdui, "Start", command=com2)
 but1.pack()
 
 # but2 = CMDUI.CMDButton(cmdui, "Button Two")

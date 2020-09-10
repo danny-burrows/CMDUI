@@ -16,6 +16,8 @@ class CMDUI:
 
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
+
+        self.res_c = 0
     
     
     def mainloop(self):
@@ -61,6 +63,9 @@ class CMDUI:
     def on_window_resize(self):
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
+        
+        # Updating pack twice prevents drawing gaps in ui.
+        self.update_pack()
         self.update_pack()
 
 
@@ -106,8 +111,8 @@ class Widget:
 
         self.x = x
         self.y = y
-        self.width = 0
-        self.height = 0
+        #self.width = 0
+        #self.height = 0
 
         self.hovered = False
         self.active = False
@@ -161,10 +166,44 @@ class Widget:
             return False
 
 
-class CMDButton(Widget):
+    def draw_pressed(self):
+        pass
+
+
+class CMDLabel(Widget):
 
 
     def __init__(self, cmdui_obj, text, x=0, y=0):
+        super().__init__(cmdui_obj)
+
+        self.text = text
+
+        self.display = self.generate_label(text)
+
+        #self.width = len(self.display[0])
+        #self.height = len(self.display)
+
+
+    def generate_label(self, text):
+        top = f'┌─{"─"*len(text)}─┐'
+        mid = f'│ {    text     } │'
+        btm = f'└─{"─"*len(text)}─┘'
+
+        return (top, mid, btm)
+
+    @property
+    def width(self):
+        return len(self.display[0])
+
+    @property
+    def height(self):
+        return len(self.display)
+
+
+class CMDButton(Widget):
+
+
+    def __init__(self, cmdui_obj, text, x=0, y=0, command=None):
         super().__init__(cmdui_obj, x, y)
 
         self.text = text
@@ -174,6 +213,13 @@ class CMDButton(Widget):
 
         self.width = len(self.display[0])
         self.height = len(self.display)
+
+        if command:
+            self.command = command
+
+
+    def command(self):
+        pass
 
 
     def generate_button(self, text):
@@ -225,6 +271,7 @@ class CMDButton(Widget):
         import time
         if self.check_inside(x, y, self):
             self.draw_pressed()
+            self.command()
             return True
         else:
             return False
