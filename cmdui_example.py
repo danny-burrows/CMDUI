@@ -1,70 +1,43 @@
 import CMDUI as CMD
+import threading
+import time
 
 cmdui = CMD.CMDUI()
 
-menu = CMD.CMDMenu(cmdui)
-
-menuOpt = CMD.CMDMenuOption(menu, "File")
-
-menuOpt = CMD.CMDMenuOption(menu, "Edit")
-menu.pack()
-
-import time
-import threading
+txt = CMD.StringVar()
+btn_txt = CMD.StringVar()
+btn_txt.set("Start")
 
 running = False
 
 
-def tst():
-    global running
+def counter():
+    btn_txt.set("Stop")
+
     tt = time.time()
-
-    but1.undraw()
-
-    but1.text = "Stop"
-    but1.display = but1.generate_button("Stop")
-    
     while running:
-        lab1.undraw()
-        t = time.time() - tt
-        lab1.display = lab1.generate_label(str(round(t, 2)))
-        cmdui.update_pack()
+        t = "%.2f" % (time.time() - tt)
+        txt.set(t)
         time.sleep(0.01)
     
-    but1.undraw()
-    but1.text = "Reset"
-    but1.display = but1.generate_button("Reset")
-    cmdui.update_pack()
+    btn_txt.set("Reset")
 
 
-def com2():
-
-    if but1.text == "Reset":
-        lab1.undraw()
-        lab1.display = lab1.generate_label("")
-        
-        but1.undraw()
-        but1.text = "Start"
-        but1.display = but1.generate_button("Start")
-        
-        cmdui.update_pack()
+def stopwatch():
+    if btn_txt.get() == "Reset":
+        btn_txt.set("Start")
+        txt.set("")
         return
 
     global running
     running = not running
-    threading.Thread(target=tst).start()
+    threading.Thread(target=counter).start()
 
-lab1 = CMD.CMDLabel(cmdui,  "")
-lab1.pack()
 
-but1 = CMD.CMDButton(cmdui, "Start", command=com2)
-but1.pack()
+lab = CMD.Label(cmdui, textvariable=txt)
+lab.pack()
 
-# but2 = CMDUI.CMDButton(cmdui, "Button Two")
-# but2.pack()
-
-# inp1 = CMDUI.CMDInput(cmdui, "   Text Input   ")
-# inp1.pack()
+but = CMD.Button(cmdui, textvariable=btn_txt, command=stopwatch)
+but.pack()
 
 cmdui.mainloop()
-input()

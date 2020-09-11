@@ -17,8 +17,7 @@ class CMDUI:
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
 
-        self.res_c = 0    
-    
+
     def mainloop(self):
         try:
             self.console_manager.start()
@@ -155,17 +154,22 @@ class Widget:
         pass
 
 
-class CMDLabel(Widget):
+class Label(Widget):
 
 
-    def __init__(self, cmdui_obj, text, x=0, y=0):
+    def __init__(self, cmdui_obj, text="", textvariable=None, x=0, y=0):
         super().__init__(cmdui_obj)
 
         self.text = text
-        self.display = self.generate_label(text)
+
+        if textvariable:
+            textvariable.widgets.append(self)
+            self.display = self.generate_display(textvariable.get())
+        else:
+            self.display = self.generate_display(text)
 
 
-    def generate_label(self, text):
+    def generate_display(self, text):
         top = f'┌─{"─"*len(text)}─┐'
         mid = f'│ {    text     } │'
         btm = f'└─{"─"*len(text)}─┘'
@@ -181,16 +185,21 @@ class CMDLabel(Widget):
         return len(self.display)
 
 
-class CMDButton(Widget):
+class Button(Widget):
 
 
-    def __init__(self, cmdui_obj, text, x=0, y=0, command=None):
+    def __init__(self, cmdui_obj, text="", textvariable=None, x=0, y=0, command=None):
         super().__init__(cmdui_obj, x, y)
 
-        self.text = text
-
-        self.display = self.generate_button(text)
-        self.display_active = self.generate_active_button(text)
+        if textvariable:
+            textvariable.widgets.append(self)
+            self.text = textvariable.get()
+            self.display = self.generate_display(self.text)
+            self.display_active = self.generate_active_display(self.text)
+        else:
+            self.text = text
+            self.display = self.generate_display(text)
+            self.display_active = self.generate_active_display(text)
 
         self.width = len(self.display[0])
         self.height = len(self.display)
@@ -203,7 +212,7 @@ class CMDButton(Widget):
         pass
 
       
-    def generate_button(self, text):
+    def generate_display(self, text):
         top = f'┌─{"─"*len(text)}─┐'
         mid = f'│ {    text     } │'
         btm = f'└─{"─"*len(text)}─┘'
@@ -211,7 +220,7 @@ class CMDButton(Widget):
         return (top, mid, btm)
 
 
-    def generate_active_button(self, text):
+    def generate_active_display(self, text):
         top = f'╔═{"═"*len(text)}═╗'
         mid = f'║ {    text     } ║'
         btm = f'╚═{"═"*len(text)}═╝'
@@ -220,7 +229,7 @@ class CMDButton(Widget):
 
 
     def draw_hover(self):
-        self.display = self.generate_active_button(self.text)
+        self.display = self.generate_active_display(self.text)
         self.draw()
 
 
@@ -232,7 +241,7 @@ class CMDButton(Widget):
         # Bitwise XOR using FOREGROUND_INTENSITY; Keeps the colour, inverts the intensity.
         self.cmdui_obj.console_manager.set_color(cur_color ^ FOREGROUND_INTENSITY)
 
-        #self.display = self.generate_active_button(self.text)
+        self.display = self.generate_active_display(self.text)
         self.draw()
 
         self.cmdui_obj.console_manager.set_color(cur_color)
@@ -244,7 +253,7 @@ class CMDButton(Widget):
             self.draw_hover()
         elif not self.check_inside(x, y, self) and self.hovered == True:
             self.hovered = False
-            self.display = self.generate_button(self.text)
+            self.display = self.generate_display(self.text)
             self.draw()
 
     
@@ -258,7 +267,7 @@ class CMDButton(Widget):
             return False
 
 
-class CMDInput(Widget):
+class Input(Widget):
 
     
     def __init__(self, cmdui_obj, text, x=0, y=0):
@@ -390,7 +399,7 @@ class DrawPad(Widget):
             self.cmdui_obj.console_manager.print_pos(x, y, "X")
 
 
-class CMDMenu(Widget):
+class Menu(Widget):
 
 
     def __init__(self, cmdui_obj):
@@ -429,11 +438,41 @@ class CMDMenu(Widget):
             self.cmdui_obj.console_manager.print_pos(0, self.y+i, " "*len(self.display[i]))
 
 
-class CMDMenuOption:
+class MenuOption:
 
 
-    def __init__(self, cmdmenu_obj, text):
+    def __init__(self, menu_obj, text):
 
         self.text = text
 
-        cmdmenu_obj.options.append(self)
+        menu_obj.options.append(self)
+
+
+class Variable:
+
+
+    def __init__(self):
+        self.widgets = []
+        self.value = None
+
+
+    def set(self, value):
+        self.value = value
+
+        for widget in self.widgets:
+            widget.undraw()
+            widget.text = value
+            widget.display = widget.generate_display(value)
+            widget.draw()
+
+    
+    def get(self):
+        return self.value
+
+
+class StringVar(Variable):
+
+
+    def __init__(self):
+        super().__init__()
+        self.value = ""
