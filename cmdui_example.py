@@ -2,21 +2,13 @@ import CMDUI as CMD
 import threading
 import time
 
-cmdui = CMD.CMDUI()
-
-txt = CMD.StringVar()
-btn_txt = CMD.StringVar()
-btn_txt.set("Start")
-
-running = False
-
 
 def counter():
     btn_txt.set("Stop")
 
     tt = time.time()
     while running:
-        t = "%.2f" % (time.time() - tt)
+        t = f"{time.time()-tt:.2f}"
         txt.set(t)
         time.sleep(0.01)
     
@@ -33,6 +25,13 @@ def stopwatch():
     running = not running
     threading.Thread(target=counter).start()
 
+
+running = False
+cmdui = CMD.CMDUI()
+
+txt = CMD.StringVar()
+btn_txt = CMD.StringVar()
+btn_txt.set("Start")
 
 lab = CMD.Label(cmdui, textvariable=txt)
 lab.pack()

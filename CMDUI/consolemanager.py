@@ -1,5 +1,5 @@
-from .stoppablethread import StoppableThread
-from .windowresizelistener import ResizeListener
+from .utils.stoppablethread import StoppableThread
+from .utils.windowresizelistener import ResizeListener
 import win32console
 import pywintypes
 import win32file
@@ -22,6 +22,7 @@ class ConsoleManager(StoppableThread):
         self.window_resize_listener = ResizeListener(on_resize=self.on_window_resize)
         self.virtual_keys = self.get_virtual_keys()
 
+        self.is_drawing = False
         self.res_c = 0
 
 
@@ -40,16 +41,29 @@ class ConsoleManager(StoppableThread):
 
 
     def print(self, text):
-        self.console_output.WriteConsole(f'{text}\n')
+        if not self.res_c:
+            self.console_output.WriteConsole(f'{text}\n')
 
 
     def print_pos(self, x, y, text):
+        if not self.res_c:
+            self._print_pos(x, y, text)
+            
+
+    def _print_pos(self, x, y, text):
+        while self.is_drawing:
+            pass
+
+        self.is_drawing = True
+
         pos = win32console.PyCOORDType(x, y)
         try:
             self.console_output.SetConsoleCursorPosition(pos)
-            self.console_output.WriteConsole(f'{text}\n')
+            self.console_output.WriteConsole(text)
         except pywintypes.error:
             pass
+
+        self.is_drawing = False
 
     
     def color_pos(self, x, y, color):
@@ -160,10 +174,10 @@ class ConsoleManager(StoppableThread):
                     if input_record.EventFlags in (0, 2):  ## 0 indicates a button event (I think 2 means doubleclick)
 
                         if input_record.ButtonState != 0:   ## exclude button releases
-                            self.on_click(pos.X, pos.Y, input_record.ButtonState, 1)
+                            self.on_click(pos.X, pos.Y, input_record.ButtonState)
                             #self.color_flip_fun(pos)
                         else:
-                            self.on_click(pos.X, pos.Y, input_record.ButtonState, 0)
+                            self.on_click(pos.X, pos.Y, input_record.ButtonState)
 
                     elif input_record.EventFlags == 1:
                         xpos = (pos.X, pos.Y)
@@ -184,7 +198,7 @@ class ConsoleManager(StoppableThread):
         pass
 
 
-    def on_click(self, x, y, button, pressed):
+    def on_click(self, x, y, button_state):
         pass
 
 
@@ -202,16 +216,16 @@ class ConsoleManager(StoppableThread):
         self.window_width = self.console_size[0]
         self.window_height = self.console_size[1]
 
-        for i in range(self.window_height):
-            self.print_pos(0, i, " "*self.window_width)
+        #for i in range(self.window_height):
+        self._print_pos(0, 0, " "*(self.window_width*self.window_height))
 
         while self.res_c != res_n:
             res_n = self.res_c
             time.sleep(0.1)
         
+        self.set_buffersize_to_windowsize()
         self.res_c = 0
 
-        self.set_buffersize_to_windowsize()
         self.on_resize()
 
 
@@ -272,7 +286,7 @@ class ConsoleManager(StoppableThread):
             sizex = windowinfo.Right - windowinfo.Left + 1
             sizey = windowinfo.Bottom - windowinfo.Top + 1
         
-        return sizex, sizey
+            return sizex, sizey
 
 
     @property
