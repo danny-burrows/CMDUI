@@ -22,8 +22,8 @@ class ConsoleManager(StoppableThread):
         self.window_resize_listener = ResizeListener(on_resize=self.on_window_resize)
         self.virtual_keys = self.get_virtual_keys()
 
-        self.is_drawing = False
-        self.res_c = 0
+        self._thread_lock = threading.Lock()
+        self._res_c = 0
 
 
     def get_color(self):
@@ -41,29 +41,24 @@ class ConsoleManager(StoppableThread):
 
 
     def print(self, text):
-        if not self.res_c:
+        if not self._res_c:
             self.console_output.WriteConsole(f'{text}\n')
 
 
     def print_pos(self, x, y, text):
-        if not self.res_c:
+        if not self._res_c:
             self._print_pos(x, y, text)
             
 
     def _print_pos(self, x, y, text):
-        while self.is_drawing:
-            pass
-
-        self.is_drawing = True
-
-        pos = win32console.PyCOORDType(x, y)
-        try:
-            self.console_output.SetConsoleCursorPosition(pos)
-            self.console_output.WriteConsole(text)
-        except pywintypes.error:
-            pass
-
-        self.is_drawing = False
+        with self._thread_lock:
+            # time.sleep(0.0777)
+            pos = win32console.PyCOORDType(x, y)
+            try:
+                self.console_output.SetConsoleCursorPosition(pos)
+                self.console_output.WriteConsole(text)
+            except pywintypes.error:
+                pass
 
     
     def color_pos(self, x, y, color):
@@ -219,19 +214,19 @@ class ConsoleManager(StoppableThread):
         #for i in range(self.window_height):
         self._print_pos(0, 0, " "*(self.window_width*self.window_height))
 
-        while self.res_c != res_n:
-            res_n = self.res_c
+        while self._res_c != res_n:
+            res_n = self._res_c
             time.sleep(0.1)
         
         self.set_buffersize_to_windowsize()
-        self.res_c = 0
+        self._res_c = 0
 
         self.on_resize()
 
 
     def on_window_resize(self):
-        self.res_c += 1             
-        if self.res_c == 1:
+        self._res_c += 1             
+        if self._res_c == 1:
             t = threading.Thread(target=self.checker)
             t.start()
 
