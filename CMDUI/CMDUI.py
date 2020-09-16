@@ -177,7 +177,9 @@ class Label(Widget):
         self.display = self.generate_display()
 
         if pk_update_needed:
-            self.cmdui_obj.update_pack()
+            self.undraw()
+            self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            self.draw()
 
 
     def generate_display(self):
@@ -222,7 +224,9 @@ class Button(Widget):
             self.display = self.generate_display()
 
         if pk_update_needed:
-            self.cmdui_obj.update_pack()
+            self.undraw()
+            self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            self.draw()
 
       
     def generate_display(self):

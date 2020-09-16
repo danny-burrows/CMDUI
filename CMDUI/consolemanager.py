@@ -51,14 +51,13 @@ class ConsoleManager(StoppableThread):
             
 
     def _print_pos(self, x, y, text):
-        with self._thread_lock:
-            # time.sleep(0.0777)
-            pos = win32console.PyCOORDType(x, y)
-            try:
+        pos = win32console.PyCOORDType(x, y)
+        try:
+            with self._thread_lock:
                 self.console_output.SetConsoleCursorPosition(pos)
                 self.console_output.WriteConsole(text)
-            except pywintypes.error:
-                pass
+        except pywintypes.error:
+            pass
 
     
     def color_pos(self, x, y, color):
@@ -100,9 +99,7 @@ class ConsoleManager(StoppableThread):
         self.console_output.SetConsoleActiveScreenBuffer()
         try:
             self.window_resize_listener.start()
-            t = threading.Thread(target=self._event_loop)
-            t.start()
-            t.join()
+            self._event_loop()
         except Exception as e:
             self.window_resize_listener.stop()
             self.console_output.Close()
@@ -211,7 +208,6 @@ class ConsoleManager(StoppableThread):
         self.window_width = self.console_size[0]
         self.window_height = self.console_size[1]
 
-        #for i in range(self.window_height):
         self._print_pos(0, 0, " "*(self.window_width*self.window_height))
 
         while self._res_c != res_n:
@@ -221,6 +217,7 @@ class ConsoleManager(StoppableThread):
         self.set_buffersize_to_windowsize()
         self._res_c = 0
 
+        self._print_pos(0, 0, " "*(self.window_width*self.window_height))
         self.on_resize()
 
 
