@@ -1,5 +1,5 @@
-from .consolemanager import ConsoleManager
-from .variables import StringVar
+from CMDUI.consolemanager import ConsoleManager
+from CMDUI.variables import StringVar, IntVar, DoubleVar, BooleanVar
 import math
 
 
@@ -10,6 +10,8 @@ class CMDUI:
         self.console_manager = ConsoleManager(on_move=self.on_mouse_move, 
                                               on_click=self.on_mouse_click,
                                               on_resize=self.on_window_resize)
+
+        self.frames = []
 
         self.widgets = []
         self.packed_widgets = []
@@ -28,12 +30,11 @@ class CMDUI:
             # self.console_manager.set_cursor_visable(False)
 
             # Initially building widgets!
-            self.initial_pack()
+            self.update_pack(undraw=False)
 
             self.console_manager.join()
-        except (Exception, KeyboardInterrupt) as e:
+        finally:
             self.console_manager.stop()
-            raise e
 
 
     def on_mouse_move(self, x, y):
@@ -55,25 +56,10 @@ class CMDUI:
     def on_window_resize(self):
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
-        self.update_pack()
+        self.update_pack(undraw=False)
 
 
-    def initial_pack(self):
-        widget_total_space = sum((widget.height for widget in self.packed_widgets))
-        widgets_start = math.floor((self.window_height / 2) - (widget_total_space / 2))
-
-        widget_yoffset = 0
-
-        for widget in self.packed_widgets:
-            widget.x = math.floor((self.window_width / 2) - (widget.width / 2))
-            widget.y = widgets_start+widget_yoffset
-
-            widget.draw()
-
-            widget_yoffset += widget.height
-
-
-    def update_pack(self):
+    def update_pack(self, undraw=True):
         widget_total_space = sum((widget.height for widget in self.packed_widgets))
         widgets_start = math.floor((self.window_height / 2) - (widget_total_space / 2))
 
@@ -81,7 +67,8 @@ class CMDUI:
 
         for widget in self.packed_widgets:
             
-            widget.undraw()
+            if undraw:
+                widget.undraw()
 
             widget.x = math.floor((self.window_width / 2) - (widget.width / 2))
             widget.y = widgets_start+widget_yoffset
@@ -91,12 +78,31 @@ class CMDUI:
             widget_yoffset += widget.height
 
 
+class Frame:
+
+
+    def __init__(self, cmdui_obj, x=0, y=0):
+        cmdui_obj.frames.append(self)
+        self.cmdui_obj = cmdui_obj
+
+        self.widgets = []
+        
+        self.x = x
+        self.y = y
+        self.width = 0
+        self.height = 0
+
+
 class Widget:
 
 
     def __init__(self, cmdui_obj, x=0, y=0):
         cmdui_obj.widgets.append(self)
-        self.cmdui_obj = cmdui_obj
+        
+        if isinstance(cmdui_obj, CMDUI):
+            self.cmdui_obj = cmdui_obj
+        elif isinstance(cmdui_obj, Frame):
+            self.cmdui_obj = cmdui_obj.cmdui_obj
 
         self.x = x
         self.y = y
@@ -267,9 +273,10 @@ class Button(Widget):
             self.hovered = True
             self.draw_hover()
         elif not self.check_inside(x, y) and self.hovered == True:
-            self.hovered = False
-            self.display = self.generate_display()
-            self.draw()
+            if not self.pressed:
+                self.hovered = False
+                self.display = self.generate_display()
+                self.draw()
 
 
     def on_press(self, x, y):
@@ -456,7 +463,7 @@ class MenuOption:
 
 
     def __init__(self, menu_obj, text):
+        menu_obj.options.append(self)
 
         self.text = text
 
-        menu_obj.options.append(self)

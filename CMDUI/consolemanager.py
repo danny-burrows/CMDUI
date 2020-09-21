@@ -1,5 +1,5 @@
-from .utils.stoppablethread import StoppableThread
-from .utils.windowresizelistener import ResizeListener
+from CMDUI.utils.stoppablethread import StoppableThread
+from CMDUI.utils.windowresizelistener import ResizeListener
 import win32console
 import pywintypes
 import win32file
@@ -98,18 +98,13 @@ class ConsoleManager(StoppableThread):
         self.init_console_input()
         self.console_output.SetConsoleActiveScreenBuffer()
         try:
+            # self.window_resize_listener.daemon = True
             self.window_resize_listener.start()
             self._event_loop()
-        except Exception as e:
+        finally:
             self.window_resize_listener.stop()
             self.console_output.Close()
-            raise e
-            
-        self.window_resize_listener.stop()
-        self.console_input.SetConsoleMode(self.default_conin_mode)
-        
-        self.console_input.Close()
-        self.console_output.Close()
+            self.console_input.SetConsoleMode(self.default_conin_mode)
 
         if self.free_console:
             win32console.FreeConsole()

@@ -5,6 +5,9 @@ import ctypes.wintypes
 
 class ResizeListener(StoppableThread):
 
+    EVENT_CONSOLE_LAYOUT = 0x4005
+    WINEVENT_OUTOFCONTEXT = 0x0000
+
 
     def __init__(self, on_resize=None):
         super().__init__()
@@ -13,17 +16,7 @@ class ResizeListener(StoppableThread):
 
         self.user32 = ctypes.WinDLL('user32', use_last_error=True)
         self.ole32 = ctypes.OleDLL('ole32')
-
-
-    def callback(self, hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
-        self.on_resize()
-        return self.user32.CallNextHookEx(None, hWinEventHook, event, hwnd)
-
-
-    def run(self):
-        EVENT_CONSOLE_LAYOUT = 0x4005
-        WINEVENT_OUTOFCONTEXT = 0x0000
-
+        
         self.ole32.CoInitialize(0)
 
         WinEventProcType = ctypes.WINFUNCTYPE(
@@ -37,38 +30,42 @@ class ResizeListener(StoppableThread):
             ctypes.wintypes.DWORD
         )
 
-        WinEventProc = WinEventProcType(self.callback)
-
+        self.WinEventProc = WinEventProcType(self.callback)
         self.user32.SetWinEventHook.restype = ctypes.wintypes.HANDLE
 
-        self.hook = self.user32.SetWinEventHook(
-            EVENT_CONSOLE_LAYOUT,
-            EVENT_CONSOLE_LAYOUT,
+    
+    def run(self):
+        hook = self.user32.SetWinEventHook(
+            self.EVENT_CONSOLE_LAYOUT,
+            self.EVENT_CONSOLE_LAYOUT,
             0,
-            WinEventProc,
+            self.WinEventProc,
             0,
             0,
-            WINEVENT_OUTOFCONTEXT
+            self.WINEVENT_OUTOFCONTEXT
         )
 
-        if self.hook == 0:
+        if hook == 0:
             raise Exception('Couldn\'t hook window resize event! Reason: SetWinEventHook failed.')
-
-        msg = ctypes.wintypes.MSG()
-        self.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
         
-        # while self.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0) != 0 and not self.stopped():
-        #     self.user32.TranslateMessageW(msg)
-        #     self.user32.DispatchMessageW(msg)
+        msg = ctypes.wintypes.MSG()
+        while self.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0) != 0 and not self.stopped():
+            self.user32.TranslateMessageW(msg)
+            self.user32.DispatchMessageW(msg)
 
-        self.user32.UnhookWinEvent(self.hook)
+        self.user32.UnhookWinEvent(hook)
         self.ole32.CoUninitialize()
 
 
     def stop(self):
         WM_QUIT = 0x0012
-        self.user32.PostThreadMessageW(self.ident, WM_QUIT, 0, 0)
         self._stop_event.set()
+        self.user32.PostThreadMessageW(self.ident, WM_QUIT, 0, 0)
+
+
+    def callback(self, hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
+        self.on_resize()
+        return self.user32.CallNextHookEx(None, hWinEventHook, event, hwnd)
 
 
     def on_resize(self):

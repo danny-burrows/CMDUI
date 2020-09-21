@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(0,'..')
+
 import CMDUI as CMD
 import threading
 import time
