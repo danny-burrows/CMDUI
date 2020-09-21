@@ -1,4 +1,6 @@
-from .consolemanager import ConsoleManager
+from CMDUI.consolemanager import ConsoleManager
+from CMDUI.variables import StringVar, IntVar, DoubleVar, BooleanVar
+import math
 
 
 class CMDUI:
@@ -9,6 +11,8 @@ class CMDUI:
                                               on_click=self.on_mouse_click,
                                               on_resize=self.on_window_resize)
 
+        self.frames = []
+
         self.widgets = []
         self.packed_widgets = []
 
@@ -17,88 +21,76 @@ class CMDUI:
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
 
-        self.res_c = 0    
-    
+
     def mainloop(self):
         try:
             self.console_manager.start()
 
             # (DISABLED FOR DEBUG)
-            #self.console_manager.cursor_visable(False)
+            # self.console_manager.set_cursor_visable(False)
 
             # Initially building widgets!
-            self.initial_pack()
+            self.update_pack(undraw=False)
 
             self.console_manager.join()
-        except (Exception, KeyboardInterrupt) as e:
+        finally:
             self.console_manager.stop()
-            raise e
 
 
     def on_mouse_move(self, x, y):
-        # self.console_manager.print_pos(0, 3, f'Mouse Moved {x}, {y}\t\t')
         for widget in self.packed_widgets:
-            widget.update_widget(x, y)
+            widget.check_hover(x, y)
 
 
-    def on_mouse_click(self, x, y, button, pressed):
-        # self.console_manager.print_pos(0, 2, f'Mouse Clicked {x}, {y} {button} {pressed}\t\t')
-        if pressed == 1 and button == 1:
+    def on_mouse_click(self, x, y, button_state):
+        if button_state == 1:
             for widget in self.packed_widgets:
-                    if widget.is_clicked(x, y):
-                        widget.draw_pressed()
-
-        elif not pressed:
-            # released buttons draw all normal
-            # self.console_manager.print_pos(0, 8, f'Mouse Released {x}, {y}\t\t')
-
-            self.update_pack()
-
-            # for widget in self.packed_widgets:
-            #     widget.draw_hover()
-            #     pass
+                if widget.check_inside(x, y):
+                    widget.on_press(x, y)
+                    
+        elif button_state == 0:
+            for widget in self.packed_widgets:
+                widget.on_release()
 
 
     def on_window_resize(self):
         self.window_width = self.console_manager.console_size[0]
         self.window_height = self.console_manager.console_size[1]
-        
-        # Updating pack twice prevents drawing gaps in ui.
-        self.update_pack()
-        self.update_pack()
+        self.update_pack(undraw=False)
 
 
-    def initial_pack(self):
+    def update_pack(self, undraw=True):
         widget_total_space = sum((widget.height for widget in self.packed_widgets))
-        widgets_start = (self.window_height // 2) - (widget_total_space // 2)
-
-        widget_yoffset = 0
-
-        for widget in self.packed_widgets:
-            widget.x = (self.window_width // 2) - (widget.width // 2)
-            widget.y = widgets_start+widget_yoffset
-
-            widget.draw()
-
-            widget_yoffset += widget.height
-
-
-    def update_pack(self):
-        widget_total_space = sum((widget.height for widget in self.packed_widgets))
-        widgets_start = (self.window_height // 2) - (widget_total_space // 2)
+        widgets_start = math.floor((self.window_height / 2) - (widget_total_space / 2))
 
         widget_yoffset = 0
 
         for widget in self.packed_widgets:
             
-            widget.undraw()
+            if undraw:
+                widget.undraw()
 
-            widget.x = (self.window_width // 2) - (widget.width // 2)
+            widget.x = math.floor((self.window_width / 2) - (widget.width / 2))
             widget.y = widgets_start+widget_yoffset
 
             widget.draw()
 
             widget_yoffset += widget.height
+
+
+class Frame:
+
+
+    def __init__(self, cmdui_obj, x=0, y=0):
+        cmdui_obj.frames.append(self)
+        self.cmdui_obj = cmdui_obj
+
+        self.widgets = []
+        
+        self.x = x
+        self.y = y
+        self.width = 0
+        self.height = 0
 
 
 class Widget:
@@ -106,26 +98,24 @@ class Widget:
 
     def __init__(self, cmdui_obj, x=0, y=0):
         cmdui_obj.widgets.append(self)
-        self.cmdui_obj = cmdui_obj
+        
+        if isinstance(cmdui_obj, CMDUI):
+            self.cmdui_obj = cmdui_obj
+        elif isinstance(cmdui_obj, Frame):
+            self.cmdui_obj = cmdui_obj.cmdui_obj
 
         self.x = x
         self.y = y
-        #self.width = 0
-        #self.height = 0
 
-        self.hovered = False
-        self.active = False
         self.display = ""
 
-    
+        
     def pack(self):
         if self not in self.cmdui_obj.packed_widgets:
             self.cmdui_obj.packed_widgets.append(self)
     
 
     def draw(self):
-        # winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height 
-
         x_coord = self.x if self.x > 0 else 0
         y_coord = self.y if self.y > 0 else 0
 
@@ -134,8 +124,6 @@ class Widget:
 
 
     def undraw(self):
-        # winw, winh = self.cmdui_obj.window_width, self.cmdui_obj.window_height
-
         x_coord = self.x if self.x > 0 else 0
         y_coord = self.y if self.y > 0 else 0
 
@@ -143,102 +131,126 @@ class Widget:
             self.cmdui_obj.console_manager.print_pos(x_coord, y_coord+i, " "*len(self.display[i]))
 
 
-    def check_inside(self, x, y, obj):
-        if x >= obj.x and x < obj.x+obj.width and \
-           y >= obj.y and y < obj.y+obj.height:
+    def check_inside(self, x, y):
+        if x >= self.x and x < self.x+self.width and \
+           y >= self.y and y < self.y+self.height:
             return True
         else:
             return False
 
 
-    def update_widget(self, x, y):
-        if self.check_inside(x, y, self) and self.hovered == False:
-            self.hovered = True
-        elif not self.check_inside(x, y, self) and self.hovered == True:
-            self.hovered = False
-
-
-    def is_clicked(self, x, y):
-        if self.check_inside(x, y, self):
-            return True
-        else:
-            return False
-
-    
-    def draw_pressed(self):
+    def check_hover(self, x, y):
         pass
 
 
-class CMDLabel(Widget):
+    def on_press(self, x, y):
+        pass
 
 
-    def __init__(self, cmdui_obj, text, x=0, y=0):
-        super().__init__(cmdui_obj)
+    def on_release(self):
+        pass
 
-        self.text = text
-
-        self.display = self.generate_label(text)
-
-        #self.width = len(self.display[0])
-        #self.height = len(self.display)
-
-
-    def generate_label(self, text):
-        top = f'┌─{"─"*len(text)}─┐'
-        mid = f'│ {    text     } │'
-        btm = f'└─{"─"*len(text)}─┘'
-
-        return (top, mid, btm)
-
+    
     @property
     def width(self):
         return len(self.display[0])
+
 
     @property
     def height(self):
         return len(self.display)
 
 
-class CMDButton(Widget):
+class Label(Widget):
 
 
-    def __init__(self, cmdui_obj, text, x=0, y=0, command=None):
+    def __init__(self, cmdui_obj, text="", textvariable=None, x=0, y=0):
         super().__init__(cmdui_obj, x, y)
 
+        if textvariable:
+            self.text = textvariable.get()
+            textvariable.widgets.append(self)
+        else:
+            self.text = text
+
+        self.display = self.generate_display()
+
+
+    def update_text(self, text):
+        pk_update_needed = True if len(self.text) != len(text) else False
+        
         self.text = text
+        self.display = self.generate_display()
 
-        self.display = self.generate_button(text)
-        self.display_active = self.generate_active_button(text)
+        if pk_update_needed:
+            self.undraw()
+            self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            self.draw()
 
-        self.width = len(self.display[0])
-        self.height = len(self.display)
+
+    def generate_display(self):
+        top = f'┌─{"─"*len(self.text)}─┐'
+        mid = f'│ {    self.text     } │'
+        btm = f'└─{"─"*len(self.text)}─┘'
+
+        return (top, mid, btm)
+
+
+class Button(Widget):
+
+
+    def __init__(self, cmdui_obj, text="", textvariable=None, x=0, y=0, command=None):
+        super().__init__(cmdui_obj, x, y)
+
+        if textvariable:
+            self.text = textvariable.get()
+            textvariable.widgets.append(self)
+        else:
+            self.text = text
 
         if command:
             self.command = command
+            
+        self.display = self.generate_display()
+        self.hovered = False
+        self.pressed = False
 
 
     def command(self):
         pass
 
-      
-    def generate_button(self, text):
-        top = f'┌─{"─"*len(text)}─┐'
-        mid = f'│ {    text     } │'
-        btm = f'└─{"─"*len(text)}─┘'
 
+    def update_text(self, text):
+        pk_update_needed = True if len(self.text) != len(text) else False
+
+        self.text = text
+        if self.hovered:
+            self.display = self.generate_active_display()
+        else:
+            self.display = self.generate_display()
+
+        if pk_update_needed:
+            self.undraw()
+            self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            self.draw()
+
+      
+    def generate_display(self):
+        top = f'┌─{"─"*len(self.text)}─┐'
+        mid = f'│ {    self.text     } │'
+        btm = f'└─{"─"*len(self.text)}─┘'
         return (top, mid, btm)
 
 
-    def generate_active_button(self, text):
-        top = f'╔═{"═"*len(text)}═╗'
-        mid = f'║ {    text     } ║'
-        btm = f'╚═{"═"*len(text)}═╝'
-
+    def generate_active_display(self):
+        top = f'╔═{"═"*len(self.text)}═╗'
+        mid = f'║ {    self.text     } ║'
+        btm = f'╚═{"═"*len(self.text)}═╝'
         return (top, mid, btm)
 
 
     def draw_hover(self):
-        self.display = self.generate_active_button(self.text)
+        self.display = self.generate_active_display()
         self.draw()
 
 
@@ -250,33 +262,35 @@ class CMDButton(Widget):
         # Bitwise XOR using FOREGROUND_INTENSITY; Keeps the colour, inverts the intensity.
         self.cmdui_obj.console_manager.set_color(cur_color ^ FOREGROUND_INTENSITY)
 
-        #self.display = self.generate_active_button(self.text)
+        self.display = self.generate_active_display()
         self.draw()
 
         self.cmdui_obj.console_manager.set_color(cur_color)
 
 
-    def update_widget(self, x, y):
-        if self.check_inside(x, y, self) and self.hovered == False:
+    def check_hover(self, x, y):
+        if self.check_inside(x, y) and self.hovered == False:
             self.hovered = True
             self.draw_hover()
-        elif not self.check_inside(x, y, self) and self.hovered == True:
-            self.hovered = False
-            self.display = self.generate_button(self.text)
-            self.draw()
+        elif not self.check_inside(x, y) and self.hovered == True:
+            if not self.pressed:
+                self.hovered = False
+                self.display = self.generate_display()
+                self.draw()
 
-    
-    def is_clicked(self, x, y):
-        import time
-        if self.check_inside(x, y, self):
-            self.draw_pressed()
+
+    def on_press(self, x, y):
+        self.draw_pressed()
+        self.pressed = True
+
+
+    def on_release(self):
+        if self.pressed:
             self.command()
-            return True
-        else:
-            return False
+            self.pressed = False
 
 
-class CMDInput(Widget):
+class Input(Widget):
 
     
     def __init__(self, cmdui_obj, text, x=0, y=0):
@@ -359,10 +373,8 @@ class CMDInput(Widget):
 
     
     def is_clicked(self, x, y):
-        import time
         if self.check_inside(x, y, self):
             self.draw_pressed()
-            #time.sleep(0.15)
             #self.draw_hover()
             return True
         else:
@@ -408,7 +420,7 @@ class DrawPad(Widget):
             self.cmdui_obj.console_manager.print_pos(x, y, "X")
 
 
-class CMDMenu(Widget):
+class Menu(Widget):
 
 
     def __init__(self, cmdui_obj):
@@ -447,11 +459,11 @@ class CMDMenu(Widget):
             self.cmdui_obj.console_manager.print_pos(0, self.y+i, " "*len(self.display[i]))
 
 
-class CMDMenuOption:
+class MenuOption:
 
 
-    def __init__(self, cmdmenu_obj, text):
+    def __init__(self, menu_obj, text):
+        menu_obj.options.append(self)
 
         self.text = text
 
-        cmdmenu_obj.options.append(self)

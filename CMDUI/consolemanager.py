@@ -1,5 +1,5 @@
-from .stoppablethread import StoppableThread
-from .windowresizelistener import ResizeListener
+from CMDUI.utils.stoppablethread import StoppableThread
+from CMDUI.utils.windowresizelistener import ResizeListener
 import win32console
 import pywintypes
 import win32file
@@ -22,7 +22,8 @@ class ConsoleManager(StoppableThread):
         self.window_resize_listener = ResizeListener(on_resize=self.on_window_resize)
         self.virtual_keys = self.get_virtual_keys()
 
-        self.res_c = 0
+        self._thread_lock = threading.Lock()
+        self._res_c = 0
 
 
     def get_color(self):
@@ -40,14 +41,21 @@ class ConsoleManager(StoppableThread):
 
 
     def print(self, text):
-        self.console_output.WriteConsole(f'{text}\n')
+        if not self._res_c:
+            self.console_output.WriteConsole(f'{text}\n')
 
 
     def print_pos(self, x, y, text):
+        if not self._res_c:
+            self._print_pos(x, y, text)
+            
+
+    def _print_pos(self, x, y, text):
         pos = win32console.PyCOORDType(x, y)
         try:
-            self.console_output.SetConsoleCursorPosition(pos)
-            self.console_output.WriteConsole(f'{text}\n')
+            with self._thread_lock:
+                self.console_output.SetConsoleCursorPosition(pos)
+                self.console_output.WriteConsole(text)
         except pywintypes.error:
             pass
 
@@ -81,7 +89,7 @@ class ConsoleManager(StoppableThread):
 
 
     def init_console_output(self):
-        """Create a new console output buffer and set it as the active screen buffer."""
+        """Create a new console output buffer."""
 
         self.console_output = win32console.CreateConsoleScreenBuffer()
 
@@ -90,20 +98,13 @@ class ConsoleManager(StoppableThread):
         self.init_console_input()
         self.console_output.SetConsoleActiveScreenBuffer()
         try:
+            # self.window_resize_listener.daemon = True
             self.window_resize_listener.start()
-            t = threading.Thread(target=self._event_loop)
-            t.start()
-            t.join()
-        except Exception as e:
+            self._event_loop()
+        finally:
             self.window_resize_listener.stop()
             self.console_output.Close()
-            raise e
-            
-        self.window_resize_listener.stop()
-        self.console_input.SetConsoleMode(self.default_conin_mode)
-        
-        self.console_input.Close()
-        self.console_output.Close()
+            self.console_input.SetConsoleMode(self.default_conin_mode)
 
         if self.free_console:
             win32console.FreeConsole()
@@ -131,11 +132,6 @@ class ConsoleManager(StoppableThread):
         breakout=False
 
         while not breakout and not self.stopped():
-        
-            # Calling this block the console and can stop resize events from firing...
-            # This is mitigated by the time.sleep at the end of the loop but not
-            # a perfect fix as now a bunch of resize events pile up and have to be
-            # processed after each loop and read input buffer.
 
             num = self.console_input.GetNumberOfConsoleInputEvents()
 
@@ -143,7 +139,6 @@ class ConsoleManager(StoppableThread):
                 time.sleep(0.01)
                 continue
 
-            # input_records = self.console_input.ReadConsoleInput(10) 
             input_records = self.console_input.ReadConsoleInput(num)
             
             for input_record in input_records:
@@ -166,10 +161,10 @@ class ConsoleManager(StoppableThread):
                     if input_record.EventFlags in (0, 2):  ## 0 indicates a button event (I think 2 means doubleclick)
 
                         if input_record.ButtonState != 0:   ## exclude button releases
-                            self.on_click(pos.X, pos.Y, input_record.ButtonState, 1)
+                            self.on_click(pos.X, pos.Y, input_record.ButtonState)
                             #self.color_flip_fun(pos)
                         else:
-                            self.on_click(pos.X, pos.Y, input_record.ButtonState, 0)
+                            self.on_click(pos.X, pos.Y, input_record.ButtonState)
 
                     elif input_record.EventFlags == 1:
                         xpos = (pos.X, pos.Y)
@@ -190,7 +185,7 @@ class ConsoleManager(StoppableThread):
         pass
 
 
-    def on_click(self, x, y, button, pressed):
+    def on_click(self, x, y, button_state):
         pass
 
 
@@ -201,17 +196,6 @@ class ConsoleManager(StoppableThread):
     def on_resize(self):
         pass
 
-    
-    # def on_window_resize(self):
-    #     # Buffer size to window size can cause crashes. :/ Need to fix.
-    #     self.set_buffersize_to_windowsize()
-
-    #     # The following two lines are here to help debug the resize/mouse event queue bug...
-    #     # self.resize_num += 1
-    #     # self.print_pos(0, 2, f'WIN RESIZE {self.resize_num}')
-
-    #     # self.on_resize()
-
 
     def checker(self):
         res_n = 0
@@ -219,22 +203,22 @@ class ConsoleManager(StoppableThread):
         self.window_width = self.console_size[0]
         self.window_height = self.console_size[1]
 
-        for i in range(self.window_height):
-            self.print_pos(0, i, " "*self.window_width)
+        self._print_pos(0, 0, " "*(self.window_width*self.window_height))
 
-        while self.res_c != res_n:
-            res_n = self.res_c
+        while self._res_c != res_n:
+            res_n = self._res_c
             time.sleep(0.1)
         
-        self.res_c = 0
-
         self.set_buffersize_to_windowsize()
+        self._res_c = 0
+
+        self._print_pos(0, 0, " "*(self.window_width*self.window_height))
         self.on_resize()
 
 
     def on_window_resize(self):
-        self.res_c += 1             
-        if self.res_c == 1:
+        self._res_c += 1             
+        if self._res_c == 1:
             t = threading.Thread(target=self.checker)
             t.start()
 
@@ -289,7 +273,7 @@ class ConsoleManager(StoppableThread):
             sizex = windowinfo.Right - windowinfo.Left + 1
             sizey = windowinfo.Bottom - windowinfo.Top + 1
         
-        return sizex, sizey
+            return sizex, sizey
 
 
     @property
@@ -304,17 +288,3 @@ class ConsoleManager(StoppableThread):
                 raise
             free_console=False
         return free_console
-
-
-# def on_click():
-#     pass
-
-# win = ConsoleManager(on_click=on_click)
-# win.start()
-# win.join()
-
-
-# time.sleep(10)
-# win.stop()
-
-# print("FUN TIMES")
