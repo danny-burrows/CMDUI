@@ -30,16 +30,33 @@ def stopwatch():
 
 
 running = False
-cmdui = CMD.CMDUI()
+root = CMD.CMDUI()
 
 txt = CMD.StringVar()
 btn_txt = CMD.StringVar()
 btn_txt.set("Start")
 
-lab = CMD.Label(cmdui, textvariable=txt)
-lab.pack()
+# lab = CMD.Label(root, textvariable=txt)
+# lab.pack()
 
-but = CMD.Button(cmdui, textvariable=btn_txt, command=stopwatch)
+# frm = CMD.Frame(root)
+# frm.pack()
+
+# but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
+# but.pack()
+
+
+lab = CMD.Label(root, textvariable=txt)
+lab.pack(side="bottom")
+
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
+but.pack(side="right")
+
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
 but.pack()
 
-cmdui.mainloop()
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
+but.pack(side="left")
+
+
+root.mainloop()

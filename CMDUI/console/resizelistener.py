@@ -1,4 +1,4 @@
-from .stoppablethread import StoppableThread
+from CMDUI.utils.stoppablethread import StoppableThread
 import ctypes
 import ctypes.wintypes
 

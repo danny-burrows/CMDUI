@@ -1,5 +1,6 @@
-from CMDUI.consolemanager import ConsoleManager
+from CMDUI.console.consolemanager import ConsoleManager
 from CMDUI.variables import StringVar, IntVar, DoubleVar, BooleanVar
+from CMDUI.colors import get_color
 import math
 
 
@@ -11,9 +12,6 @@ class CMDUI:
                                               on_click=self.on_mouse_click,
                                               on_resize=self.on_window_resize)
 
-        self.frames = []
-
-        self.widgets = []
         self.packed_widgets = []
 
         self.console_manager.init_console_output()
@@ -39,18 +37,21 @@ class CMDUI:
 
     def on_mouse_move(self, x, y):
         for widget in self.packed_widgets:
-            widget.check_hover(x, y)
+            if isinstance(widget, Widget):
+                widget.check_hover(x, y)
 
 
     def on_mouse_click(self, x, y, button_state):
         if button_state == 1:
             for widget in self.packed_widgets:
-                if widget.check_inside(x, y):
-                    widget.on_press(x, y)
+                if isinstance(widget, Widget):
+                    if widget.check_inside(x, y):
+                        widget.on_press(x, y)
                     
         elif button_state == 0:
             for widget in self.packed_widgets:
-                widget.on_release()
+                if isinstance(widget, Widget):
+                    widget.on_release()
 
 
     def on_window_resize(self):
@@ -59,9 +60,206 @@ class CMDUI:
         self.update_pack(undraw=False)
 
 
-    def update_pack(self, undraw=True):
-        widget_total_space = sum((widget.height for widget in self.packed_widgets))
-        widgets_start = math.floor((self.window_height / 2) - (widget_total_space / 2))
+    def pack_widget(self, widget):
+        if widget in self.packed_widgets:
+            return False
+        self.packed_widgets.append(widget)
+
+
+    def update_pack(self, undraw=False):
+        # https://www.tcl.tk/man/tcl8.6/TkCmd/pack.htm
+
+        # If expand=True...
+        # height_of_widgets = sum(widget.height for widget in self.packed_widgets)
+        # self.y = math.floor((self.height / 2) - (height_of_widgets / 2))
+
+        packing_list = self.packed_widgets
+
+        cavaty = [0, 0, self.window_width, self.window_height]
+
+
+        for widget in packing_list:
+
+            parcel = [0, 0, 0, 0]
+
+            # 1 Parcel allocation...
+            if widget.pack_options["side"] == "top":
+                parcel[0] = cavaty[0]
+                parcel[1] = cavaty[1]
+                parcel[2] = cavaty[2]
+                parcel[3] = widget.height
+
+            elif widget.pack_options["side"] == "bottom":
+                parcel[0] = cavaty[0]
+                parcel[1] = (cavaty[1] + cavaty[3]) - widget.height
+                parcel[2] = cavaty[2]
+                parcel[3] = widget.height
+            
+            elif widget.pack_options["side"] == "left":
+                parcel[0] = cavaty[0]
+                parcel[1] = cavaty[1]
+                parcel[2] = widget.width
+                parcel[3] = cavaty[3]
+
+            elif widget.pack_options["side"] == "right":
+                parcel[0] = (cavaty[0] + cavaty[2]) - widget.width
+                parcel[1] = cavaty[1]
+                parcel[2] = widget.width
+                parcel[3] = cavaty[3]
+
+            import time
+            import random
+            x = ["a","c","d","0","1","2","3","4","5","6","7","8","9"]
+            h = int(f"0x{str(random.choice(x))}f", 16)
+            self.console_manager.color_area(parcel[0], parcel[1], parcel[2], parcel[3], h)
+            time.sleep(0.5)
+
+            # Extra for CMDUI...
+            if undraw:
+                widget.undraw()
+
+            # 2 Slave dimensions...
+            if widget.pack_options["fill"] == "both" or widget.pack_options["fill"] == "x":
+                widget.width = parcel[2]
+            
+            if widget.pack_options["fill"] == "both" or widget.pack_options["fill"] == "y":
+                widget.height = parcel[3]
+
+            time.sleep(0.5)
+            
+            # 3 Slave positioning...
+            if widget.pack_options["side"] == "top":
+                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0]
+                widget.y = parcel[1]
+
+                cavaty[1] += parcel[3]
+                cavaty[3] -= parcel[3]
+            
+            elif widget.pack_options["side"] == "bottom":
+                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0]
+                widget.y = parcel[1]
+
+                cavaty[3] -= parcel[3]
+
+            elif widget.pack_options["side"] == "left":
+                widget.x = parcel[0]
+                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1]
+
+                cavaty[0] += parcel[2]
+                cavaty[2] -= parcel[2]
+            
+            elif widget.pack_options["side"] == "right":
+                widget.x = parcel[0]
+                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1]
+
+                cavaty[2] -= parcel[2]
+
+            widget.draw()
+            
+        return False
+
+        num_expanded = 0 
+        for widget in self.packed_widgets: 
+            if widget.pack_options["expand"]:
+                num_expanded += 1
+
+        if num_expanded > 0:
+            height_of_widgets = sum(widget.height for widget in self.packed_widgets)
+            leftover_space = self.window_height - height_of_widgets
+            expandable_space = leftover_space // num_expanded
+
+
+        widget_yoffset = 0
+
+        for widget in self.packed_widgets:
+
+            if widget.pack_options["expand"]:
+                    widget_yoffset += expandable_space//2
+
+            if undraw:
+                widget.undraw()
+
+            widget.x = math.floor((self.window_width / 2) - (widget.width / 2))
+            widget.y = 0 + widget_yoffset
+
+            if isinstance(widget, Frame):
+                widget_yoffset = widget.update_pack()
+
+            widget.draw()
+
+            widget_yoffset += widget.height
+
+            if widget.pack_options["expand"]:
+                    widget_yoffset += expandable_space//2
+
+
+class Frame:
+
+
+    def __init__(self, parent, x=0, y=0):
+        if isinstance(parent, CMDUI):
+            self.cmdui_obj = parent
+        elif isinstance(parent, Frame):
+            self.cmdui_obj = parent.cmdui_obj
+
+        self.parent = parent
+
+        self.frames = []
+
+        self.packed_widgets = []
+        
+        self.x = x
+        self.y = y
+        self.width = 0
+        self.height = 0
+
+        self.pack_options = {
+            "expand": False,
+            "side": "top",
+            "fill":"None"
+        }
+
+
+    def pack(self):
+        if self not in self.cmdui_obj.packed_widgets:
+            self.cmdui_obj.packed_widgets.append(self)
+
+
+    def pack_widget(self, widget):
+        if widget in self.packed_widgets:
+            return False
+
+        self.packed_widgets.append(widget)
+        self.cmdui_obj.packed_widgets.append(widget)
+        self.calc_frame_size()
+    
+
+    def calc_frame_size(self):
+        self.height = sum(widget.height for widget in self.packed_widgets)
+        try:
+            self.width = max(widget.width for widget in self.packed_widgets)
+        except ValueError:
+            assert len(self.packed_widgets) == 0
+        
+        print(self.x, self.y, self.width, self.height)
+
+
+    def draw(self):
+        import random
+        x = ["a","c","d","0","1","2","3","4","5","6","7","8","9"]
+        h = int(f"0x{str(random.choice(x))}f", 16)
+        print(h)
+        self.paint_background(h)
+
+
+    def undraw(self):
+        pass
+
+
+    def update_pack(self, undraw=False):
+        # If expand=True...
+        # height_of_widgets = sum(widget.height for widget in self.packed_widgets)
+        # self.y = math.floor((self.height / 2) - (height_of_widgets / 2))
 
         widget_yoffset = 0
 
@@ -70,49 +268,62 @@ class CMDUI:
             if undraw:
                 widget.undraw()
 
-            widget.x = math.floor((self.window_width / 2) - (widget.width / 2))
-            widget.y = widgets_start+widget_yoffset
+            widget.x = math.floor((self.x + self.width / 2) - (widget.width / 2))
+            widget.y = self.y + widget_yoffset
+
+            if isinstance(widget, Frame):
+                widget_yoffset = widget.update_pack()
 
             widget.draw()
 
             widget_yoffset += widget.height
-
-
-class Frame:
-
-
-    def __init__(self, cmdui_obj, x=0, y=0):
-        cmdui_obj.frames.append(self)
-        self.cmdui_obj = cmdui_obj
-
-        self.widgets = []
         
-        self.x = x
-        self.y = y
-        self.width = 0
-        self.height = 0
+        return widget_yoffset
+
+    
+    def paint_background(self, color):
+        self.cmdui_obj.console_manager.color_area(
+            self.x, 
+            self.y, 
+            self.width, 
+            self.height, 
+            color
+        )
+        
 
 
 class Widget:
 
 
-    def __init__(self, cmdui_obj, x=0, y=0):
-        cmdui_obj.widgets.append(self)
-        
-        if isinstance(cmdui_obj, CMDUI):
-            self.cmdui_obj = cmdui_obj
-        elif isinstance(cmdui_obj, Frame):
-            self.cmdui_obj = cmdui_obj.cmdui_obj
+    def __init__(self, parent, x=0, y=0):
+        if isinstance(parent, CMDUI):
+            self.cmdui_obj = parent
+        elif isinstance(parent, Frame):
+            self.cmdui_obj = parent.cmdui_obj
 
+        self.parent = parent
         self.x = x
         self.y = y
 
         self.display = ""
 
+        self.pack_options = {
+            "expand": False,
+            "side": "top",
+            "fill":"None"
+        }
+
         
-    def pack(self):
-        if self not in self.cmdui_obj.packed_widgets:
-            self.cmdui_obj.packed_widgets.append(self)
+    def pack(self, expand=False, side="top", fill="none"):
+        self.parent.pack_widget(self)
+
+        assert isinstance(expand, bool), "Parameter 'expand' must be a boolean!"
+        assert side in ("top", "bottom", "left", "right"), "Parameter 'side' must one of the following 'top', 'bottom', 'left', or 'right'."
+        assert fill in ("none", "both", "x", "y"), "Parameter 'fill' must one of the following 'none', 'both', 'x', or 'y'."
+
+        self.pack_options["expand"] = expand
+        self.pack_options["side"] = side
+        self.pack_options["fill"] = fill
     
 
     def draw(self):
@@ -257,15 +468,18 @@ class Button(Widget):
     def draw_pressed(self):
         FOREGROUND_INTENSITY = 0x0008
 
-        cur_color = self.cmdui_obj.console_manager.get_color()
+        cur_color = self.cmdui_obj.console_manager.get_console_color_code()
 
         # Bitwise XOR using FOREGROUND_INTENSITY; Keeps the colour, inverts the intensity.
-        self.cmdui_obj.console_manager.set_color(cur_color ^ FOREGROUND_INTENSITY)
-
-        self.display = self.generate_active_display()
-        self.draw()
-
-        self.cmdui_obj.console_manager.set_color(cur_color)
+        select_color = cur_color ^ FOREGROUND_INTENSITY
+        
+        self.cmdui_obj.console_manager.color_area(
+            self.x, 
+            self.y, 
+            self.width, 
+            self.height, 
+            select_color
+        )
 
 
     def check_hover(self, x, y):
@@ -335,11 +549,10 @@ class Input(Widget):
 
 
     def draw_pressed(self):
-        FOREGROUND_INTENSITY = 0x0008
-
-        cur_color = self.cmdui_obj.console_manager.get_color()
+        cur_color = self.cmdui_obj.console_manager.get_console_color_code()
 
         # Bitwise XOR using FOREGROUND_INTENSITY; Keeps the colour, inverts the intensity.
+        FOREGROUND_INTENSITY = 0x0008
         self.cmdui_obj.console_manager.set_color(cur_color ^ FOREGROUND_INTENSITY)
 
         self.draw()
