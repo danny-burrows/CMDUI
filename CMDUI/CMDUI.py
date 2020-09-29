@@ -80,6 +80,9 @@ class CMDUI:
 
         for widget in packing_list:
 
+            if cavaty[2] <= 0 or cavaty[3] <= 0:
+                return 
+
             parcel = [0, 0, 0, 0]
 
             # 1 Parcel allocation...
@@ -87,32 +90,32 @@ class CMDUI:
                 parcel[0] = cavaty[0]
                 parcel[1] = cavaty[1]
                 parcel[2] = cavaty[2]
-                parcel[3] = widget.height
+                parcel[3] = widget.height if widget.height <= cavaty[3] else cavaty[3]
 
             elif widget.pack_options["side"] == "bottom":
                 parcel[0] = cavaty[0]
-                parcel[1] = (cavaty[1] + cavaty[3]) - widget.height
+                parcel[1] = (cavaty[1] + cavaty[3]) - widget.height if widget.height <= cavaty[3] else cavaty[1]
                 parcel[2] = cavaty[2]
-                parcel[3] = widget.height
+                parcel[3] = widget.height if widget.height <= cavaty[3] else cavaty[3]
             
             elif widget.pack_options["side"] == "left":
                 parcel[0] = cavaty[0]
                 parcel[1] = cavaty[1]
-                parcel[2] = widget.width
+                parcel[2] = widget.width if widget.width <= cavaty[2] else cavaty[2]
                 parcel[3] = cavaty[3]
 
             elif widget.pack_options["side"] == "right":
-                parcel[0] = (cavaty[0] + cavaty[2]) - widget.width
+                parcel[0] = (cavaty[0] + cavaty[2]) - widget.width if widget.width <= cavaty[2] else cavaty[0]
                 parcel[1] = cavaty[1]
-                parcel[2] = widget.width
+                parcel[2] = widget.width if widget.width <= cavaty[2] else cavaty[2]
                 parcel[3] = cavaty[3]
 
             import time
             import random
-            x = ["a","c","d","0","1","2","3","4","5","6","7","8","9"]
+            x = ["a","c","d","1","2","3","4","5","6","7","8","9"]
             h = int(f"0x{str(random.choice(x))}f", 16)
             self.console_manager.color_area(parcel[0], parcel[1], parcel[2], parcel[3], h)
-            time.sleep(0.5)
+            time.sleep(0.1)
 
             # Extra for CMDUI...
             if undraw:
@@ -125,34 +128,37 @@ class CMDUI:
             if widget.pack_options["fill"] == "both" or widget.pack_options["fill"] == "y":
                 widget.height = parcel[3]
 
-            time.sleep(0.5)
-            
             # 3 Slave positioning...
             if widget.pack_options["side"] == "top":
-                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0]
+                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0] if widget.width <= parcel[2] else parcel[0] 
                 widget.y = parcel[1]
 
                 cavaty[1] += parcel[3]
                 cavaty[3] -= parcel[3]
             
             elif widget.pack_options["side"] == "bottom":
-                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0]
+                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0] if widget.width <= parcel[2] else parcel[0] 
                 widget.y = parcel[1]
 
                 cavaty[3] -= parcel[3]
 
             elif widget.pack_options["side"] == "left":
                 widget.x = parcel[0]
-                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1]
+                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1] if widget.height <= parcel[3] else parcel[1] 
 
                 cavaty[0] += parcel[2]
                 cavaty[2] -= parcel[2]
             
             elif widget.pack_options["side"] == "right":
                 widget.x = parcel[0]
-                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1]
+                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1] if widget.height <= parcel[3] else parcel[1] 
 
-                cavaty[2] -= parcel[2]
+                cavaty[2] -= parcel[2]                
+        
+
+            if parcel[2] < widget.width or parcel[3] < widget.height:
+               # If the widget is too big for the parcel then dont pack it...
+               continue
 
             widget.draw()
             
