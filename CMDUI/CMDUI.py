@@ -138,7 +138,7 @@ class CMDUI:
                     cavity_width = 0
 
                 frame_y = cavity_y
-                if widget.pack_options["side"] == "top":
+                if widget.pack_options["side"] == "left":
                     frame_x = cavity_x
                     cavity_x += frame_width
                 else:
@@ -152,15 +152,12 @@ class CMDUI:
             h = int(f"0x{str(random.choice(x))}f", 16)
             self.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
             time.sleep(0.1)
+            
             if undraw:
                 widget.undraw()
 
-            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
-                widget.x = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
-                widget.y = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y 
-            else:
-                widget.x = frame_x
-                widget.y = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y 
+            widget.x = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
+            widget.y = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y 
 
             widget.draw()
 
@@ -417,7 +414,7 @@ class Label(Widget):
 
         if pk_update_needed:
             self.undraw()
-            self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            #self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
             self.draw()
 
 
@@ -464,7 +461,7 @@ class Button(Widget):
 
         if pk_update_needed:
             self.undraw()
-            self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            # self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
             self.draw()
 
       
