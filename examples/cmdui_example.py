@@ -50,6 +50,9 @@ lab = CMD.Label(root, textvariable=txt)
 lab.pack(side="bottom")
 
 but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
+but.pack(side="top", expand=True)
+
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
 but.pack(side="right")
 
 but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)

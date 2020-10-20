@@ -69,134 +69,150 @@ class CMDUI:
     def update_pack(self, undraw=False):
         # https://www.tcl.tk/man/tcl8.6/TkCmd/pack.htm
 
-        # If expand=True...
-        # height_of_widgets = sum(widget.height for widget in self.packed_widgets)
-        # self.y = math.floor((self.height / 2) - (height_of_widgets / 2))
+        # PASS #1
 
-        packing_list = self.packed_widgets
+        width = max_width = self.window_width
+        height = max_height = self.window_height
 
-        cavaty = [0, 0, self.window_width, self.window_height]
+        for widget in self.packed_widgets:
+            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
+                tmp = widget.width
+                if tmp > max_width:
+                    max_width = tmp
+                height += widget.height
+            else:
+                tmp = widget.height
+                if tmp > max_height:
+                    max_height = tmp
+                width += widget.width
+        
+        if width > max_width:
+            max_width = width
+        if height > max_height:
+            max_height = height
 
+        if max_width < self.window_width:
+            max_width = self.window_width
+        if max_height < self.window_height:
+            max_height = self.window_height
 
-        for widget in packing_list:
+        # If window size already changed then just stop and try again in a mo...
+        if max_width == self.window_width or max_height == self.window_height:
+            self.update_pack()
+        
+        # PASS #2
 
-            if cavaty[2] <= 0 or cavaty[3] <= 0:
-                return 
+        cavity_x = 0
+        cavity_y = 0
 
-            parcel = [0, 0, 0, 0]
+        cavity_width = self.window_width
+        cavity_height = self.window_height
 
-            # 1 Parcel allocation...
-            if widget.pack_options["side"] == "top":
-                parcel[0] = cavaty[0]
-                parcel[1] = cavaty[1]
-                parcel[2] = cavaty[2]
-                parcel[3] = widget.height if widget.height <= cavaty[3] else cavaty[3]
+        for widget_num, widget in enumerate(self.packed_widgets):
+            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
+                frame_width = cavity_width
+                frame_height = widget.height
+                if widget.pack_options["expand"]:
+                    frame_height += self.y_expansion(widget_num, cavity_height)
 
-            elif widget.pack_options["side"] == "bottom":
-                parcel[0] = cavaty[0]
-                parcel[1] = (cavaty[1] + cavaty[3]) - widget.height if widget.height <= cavaty[3] else cavaty[1]
-                parcel[2] = cavaty[2]
-                parcel[3] = widget.height if widget.height <= cavaty[3] else cavaty[3]
+                cavity_height -= frame_height
+                if cavity_height < 0:
+                    frame_height += cavity_height
+                    cavity_height = 0
+
+                frame_x = cavity_x
+                if widget.pack_options["side"] == "top":
+                    frame_y = cavity_y
+                    cavity_y += frame_height
+                else:
+                    frame_y = cavity_y + cavity_height
+            else:
+                frame_height = cavity_height
+                frame_width = widget.width
+                if widget.pack_options["expand"]:
+                    frame_width += self.x_expansion(widget_num, cavity_width)
+
+                cavity_width -= frame_width
+                if cavity_width < 0:
+                    frame_width += cavity_width
+                    cavity_width = 0
+
+                frame_y = cavity_y
+                if widget.pack_options["side"] == "top":
+                    frame_x = cavity_x
+                    cavity_x += frame_width
+                else:
+                    frame_x = cavity_x + cavity_width
+
             
-            elif widget.pack_options["side"] == "left":
-                parcel[0] = cavaty[0]
-                parcel[1] = cavaty[1]
-                parcel[2] = widget.width if widget.width <= cavaty[2] else cavaty[2]
-                parcel[3] = cavaty[3]
-
-            elif widget.pack_options["side"] == "right":
-                parcel[0] = (cavaty[0] + cavaty[2]) - widget.width if widget.width <= cavaty[2] else cavaty[0]
-                parcel[1] = cavaty[1]
-                parcel[2] = widget.width if widget.width <= cavaty[2] else cavaty[2]
-                parcel[3] = cavaty[3]
-
+            # Extra for CMDUI...
             import time
             import random
             x = ["a","c","d","1","2","3","4","5","6","7","8","9"]
             h = int(f"0x{str(random.choice(x))}f", 16)
-            self.console_manager.color_area(parcel[0], parcel[1], parcel[2], parcel[3], h)
+            self.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
             time.sleep(0.1)
-
-            # Extra for CMDUI...
             if undraw:
                 widget.undraw()
 
-            # 2 Slave dimensions...
-            if widget.pack_options["fill"] == "both" or widget.pack_options["fill"] == "x":
-                widget.width = parcel[2]
+            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
+                widget.x = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
+                widget.y = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y 
+            else:
+                widget.x = frame_x
+                widget.y = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y 
+
+            widget.draw()
+
+
+    def x_expansion(self, widget_num, cavity_width):
+        minExpand = cavity_width
+        num_expand = 0
+        for widget_n in range(widget_num, len(self.packed_widgets)):
+            widget = self.packed_widgets[widget_n]
+            child_width = widget.width
             
-            if widget.pack_options["fill"] == "both" or widget.pack_options["fill"] == "y":
-                widget.height = parcel[3]
-
-            # 3 Slave positioning...
-            if widget.pack_options["side"] == "top":
-                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0] if widget.width <= parcel[2] else parcel[0] 
-                widget.y = parcel[1]
-
-                cavaty[1] += parcel[3]
-                cavaty[3] -= parcel[3]
-            
-            elif widget.pack_options["side"] == "bottom":
-                widget.x = math.floor((parcel[2] / 2) - (widget.width / 2)) + parcel[0] if widget.width <= parcel[2] else parcel[0] 
-                widget.y = parcel[1]
-
-                cavaty[3] -= parcel[3]
-
-            elif widget.pack_options["side"] == "left":
-                widget.x = parcel[0]
-                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1] if widget.height <= parcel[3] else parcel[1] 
-
-                cavaty[0] += parcel[2]
-                cavaty[2] -= parcel[2]
-            
-            elif widget.pack_options["side"] == "right":
-                widget.x = parcel[0]
-                widget.y = math.floor((parcel[3] / 2) - (widget.height / 2)) + parcel[1] if widget.height <= parcel[3] else parcel[1] 
-
-                cavaty[2] -= parcel[2]                
+            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
+                if num_expand:
+                    cur_expand = (cavity_width - child_width) / num_expand
+                    if cur_expand < minExpand:
+                        minExpand = cur_expand
+            else:
+                cavity_width -= child_width
+                if widget.pack_options["expand"]:
+                    num_expand += 1
         
+        if num_expand:
+            cur_expand = cavity_width / num_expand
+            if cur_expand < minExpand:
+                minExpand = cur_expand
+        
+        return int(minExpand) if not (minExpand < 0) else 0
 
-            if parcel[2] < widget.width or parcel[3] < widget.height:
-               # If the widget is too big for the parcel then dont pack it...
-               continue
 
-            widget.draw()
+    def y_expansion(self, widget_num, cavity_height):
+        minExpand = cavity_height
+        num_expand = 0
+        for widget_n in range(widget_num, len(self.packed_widgets)):
+            widget = self.packed_widgets[widget_n]
+            child_height = widget.height
             
-        return False
-
-        num_expanded = 0 
-        for widget in self.packed_widgets: 
-            if widget.pack_options["expand"]:
-                num_expanded += 1
-
-        if num_expanded > 0:
-            height_of_widgets = sum(widget.height for widget in self.packed_widgets)
-            leftover_space = self.window_height - height_of_widgets
-            expandable_space = leftover_space // num_expanded
-
-
-        widget_yoffset = 0
-
-        for widget in self.packed_widgets:
-
-            if widget.pack_options["expand"]:
-                    widget_yoffset += expandable_space//2
-
-            if undraw:
-                widget.undraw()
-
-            widget.x = math.floor((self.window_width / 2) - (widget.width / 2))
-            widget.y = 0 + widget_yoffset
-
-            if isinstance(widget, Frame):
-                widget_yoffset = widget.update_pack()
-
-            widget.draw()
-
-            widget_yoffset += widget.height
-
-            if widget.pack_options["expand"]:
-                    widget_yoffset += expandable_space//2
+            if widget.pack_options["side"] == "left" or widget.pack_options["side"] == "right":
+                if num_expand:
+                    cur_expand = (cavity_height - child_height) / num_expand
+                    if cur_expand < minExpand:
+                        minExpand = cur_expand
+            else:
+                cavity_height -= child_height
+                if widget.pack_options["expand"]:
+                    num_expand += 1
+        
+        if num_expand:
+            cur_expand = cavity_height / num_expand
+            if cur_expand < minExpand:
+                minExpand = cur_expand
+        
+        return int(minExpand) if not (minExpand < 0) else 0
 
 
 class Frame:
