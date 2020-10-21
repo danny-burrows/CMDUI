@@ -33,7 +33,7 @@ class CMDUI:
             # self.console_manager.set_cursor_visable(False)
 
             # Initially building widgets!
-            self.update_pack(undraw=False)
+            self.update_pack()
 
             self.console_manager.join()
         finally:
@@ -62,7 +62,7 @@ class CMDUI:
     def on_window_resize(self):
         self.main_frame.width = self.console_manager.console_size[0]
         self.main_frame.height = self.console_manager.console_size[1]
-        self.update_pack(undraw=False)
+        self.update_pack()
 
 
     def pack_widget(self, widget):
@@ -71,7 +71,7 @@ class CMDUI:
         self.packed_widgets.append(widget)
 
 
-    def update_pack(self, cur_frame=False, undraw=False):
+    def update_pack(self, cur_frame=False):
         # https://www.tcl.tk/man/tcl8.6/TkCmd/pack.htm
 
         if not cur_frame:
@@ -152,6 +152,7 @@ class CMDUI:
                 else:
                     frame_x = cavity_x + cavity_width
 
+            widget.pack_frame = [frame_x, frame_y, frame_width, frame_height]            
             
             # Extra for CMDUI...
             import time
@@ -161,12 +162,14 @@ class CMDUI:
             self.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
             time.sleep(0.07)
             
-            if undraw:
-                widget.undraw()
+            new_wx = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
+            new_wy = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y    
 
-            widget.x = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
-            widget.y = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y 
+            if new_wx == widget.x and new_wy == widget.y:
+                return
 
+            widget.x = new_wx
+            widget.y = new_wy
             widget.draw()
 
 
@@ -335,8 +338,9 @@ class Widget:
         self.expand = False
         self.side = "top"
         self.fill = "none"
+        self.pack_frame = [0, 0, 0, 0]
 
-        
+
     def pack(self, expand=False, side="top", fill="none"):
         self.parent.pack_widget(self)
 
@@ -348,6 +352,18 @@ class Widget:
         self.side = side
         self.fill = fill
     
+
+    def re_pack(self):
+
+        # Need to check if the windows new position is too bit for the current frame!
+
+        new_wx = math.floor((self.pack_frame[2] / 2) - (self.width / 2)) + self.pack_frame[0] if self.width <= self.pack_frame[2] else self.pack_frame[0] 
+        new_wy = math.floor((self.pack_frame[3] / 2) - (self.height / 2)) + self.pack_frame[1] if self.height <= self.pack_frame[3] else self.pack_frame[1] 
+        self.undraw()
+        self.x = new_wx
+        self.y = new_wy
+        self.draw()
+
 
     def draw(self):
         x_coord = self.x if self.x > 0 else 0
@@ -417,9 +433,7 @@ class Label(Widget):
         self.display = self.generate_display()
 
         if pk_update_needed:
-            self.undraw()
-            #self.x = math.floor((self.cmdui_obj.main_frame.width / 2) - (self.width / 2))
-            self.draw()
+            self.re_pack()
 
 
     def generate_display(self):
@@ -464,9 +478,7 @@ class Button(Widget):
             self.display = self.generate_display()
 
         if pk_update_needed:
-            self.undraw()
-            # self.x = math.floor((self.cmdui_obj.main_frame.width / 2) - (self.width / 2))
-            self.draw()
+            self.re_pack()
 
       
     def generate_display(self):
