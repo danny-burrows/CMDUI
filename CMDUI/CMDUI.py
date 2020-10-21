@@ -16,8 +16,13 @@ class CMDUI:
 
         self.console_manager.init_console_output()
 
-        self.window_width = self.console_manager.console_size[0]
-        self.window_height = self.console_manager.console_size[1]
+        self.main_frame = Frame(
+            self, 
+            x=0, 
+            y=0, 
+            width=self.console_manager.console_size[0], 
+            height=self.console_manager.console_size[1]
+        )
 
 
     def mainloop(self):
@@ -55,8 +60,8 @@ class CMDUI:
 
 
     def on_window_resize(self):
-        self.window_width = self.console_manager.console_size[0]
-        self.window_height = self.console_manager.console_size[1]
+        self.main_frame.width = self.console_manager.console_size[0]
+        self.main_frame.height = self.console_manager.console_size[1]
         self.update_pack(undraw=False)
 
 
@@ -66,16 +71,19 @@ class CMDUI:
         self.packed_widgets.append(widget)
 
 
-    def update_pack(self, undraw=False):
+    def update_pack(self, cur_frame=False, undraw=False):
         # https://www.tcl.tk/man/tcl8.6/TkCmd/pack.htm
+
+        if not cur_frame:
+            cur_frame = self.main_frame
 
         # PASS #1
 
-        width = max_width = self.window_width
-        height = max_height = self.window_height
+        width = max_width = cur_frame.width
+        height = max_height = cur_frame.height
 
         for widget in self.packed_widgets:
-            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
+            if widget.side == "top" or widget.side == "bottom":
                 tmp = widget.width
                 if tmp > max_width:
                     max_width = tmp
@@ -91,13 +99,13 @@ class CMDUI:
         if height > max_height:
             max_height = height
 
-        if max_width < self.window_width:
-            max_width = self.window_width
-        if max_height < self.window_height:
-            max_height = self.window_height
+        if max_width < cur_frame.width:
+            max_width = cur_frame.width
+        if max_height < cur_frame.height:
+            max_height = cur_frame.height
 
         # If window size already changed then just stop and try again in a mo...
-        if max_width == self.window_width or max_height == self.window_height:
+        if max_width == cur_frame.width or max_height == cur_frame.height:
             self.update_pack()
         
         # PASS #2
@@ -105,14 +113,14 @@ class CMDUI:
         cavity_x = 0
         cavity_y = 0
 
-        cavity_width = self.window_width
-        cavity_height = self.window_height
+        cavity_width = cur_frame.width
+        cavity_height = cur_frame.height
 
         for widget_num, widget in enumerate(self.packed_widgets):
-            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
+            if widget.side == "top" or widget.side == "bottom":
                 frame_width = cavity_width
                 frame_height = widget.height
-                if widget.pack_options["expand"]:
+                if widget.expand:
                     frame_height += self.y_expansion(widget_num, cavity_height)
 
                 cavity_height -= frame_height
@@ -121,7 +129,7 @@ class CMDUI:
                     cavity_height = 0
 
                 frame_x = cavity_x
-                if widget.pack_options["side"] == "top":
+                if widget.side == "top":
                     frame_y = cavity_y
                     cavity_y += frame_height
                 else:
@@ -129,7 +137,7 @@ class CMDUI:
             else:
                 frame_height = cavity_height
                 frame_width = widget.width
-                if widget.pack_options["expand"]:
+                if widget.expand:
                     frame_width += self.x_expansion(widget_num, cavity_width)
 
                 cavity_width -= frame_width
@@ -138,7 +146,7 @@ class CMDUI:
                     cavity_width = 0
 
                 frame_y = cavity_y
-                if widget.pack_options["side"] == "left":
+                if widget.side == "left":
                     frame_x = cavity_x
                     cavity_x += frame_width
                 else:
@@ -151,7 +159,7 @@ class CMDUI:
             x = ["a","c","d","1","2","3","4","5","6","7","8","9"]
             h = int(f"0x{str(random.choice(x))}f", 16)
             self.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
-            time.sleep(0.1)
+            time.sleep(0.07)
             
             if undraw:
                 widget.undraw()
@@ -169,14 +177,14 @@ class CMDUI:
             widget = self.packed_widgets[widget_n]
             child_width = widget.width
             
-            if widget.pack_options["side"] == "top" or widget.pack_options["side"] == "bottom":
+            if widget.side == "top" or widget.side == "bottom":
                 if num_expand:
                     cur_expand = (cavity_width - child_width) / num_expand
                     if cur_expand < minExpand:
                         minExpand = cur_expand
             else:
                 cavity_width -= child_width
-                if widget.pack_options["expand"]:
+                if widget.expand:
                     num_expand += 1
         
         if num_expand:
@@ -194,14 +202,14 @@ class CMDUI:
             widget = self.packed_widgets[widget_n]
             child_height = widget.height
             
-            if widget.pack_options["side"] == "left" or widget.pack_options["side"] == "right":
+            if widget.side == "left" or widget.side == "right":
                 if num_expand:
                     cur_expand = (cavity_height - child_height) / num_expand
                     if cur_expand < minExpand:
                         minExpand = cur_expand
             else:
                 cavity_height -= child_height
-                if widget.pack_options["expand"]:
+                if widget.expand:
                     num_expand += 1
         
         if num_expand:
@@ -215,7 +223,7 @@ class CMDUI:
 class Frame:
 
 
-    def __init__(self, parent, x=0, y=0):
+    def __init__(self, parent, x=0, y=0, width=0, height=0):
         if isinstance(parent, CMDUI):
             self.cmdui_obj = parent
         elif isinstance(parent, Frame):
@@ -229,14 +237,12 @@ class Frame:
         
         self.x = x
         self.y = y
-        self.width = 0
-        self.height = 0
+        self.width = width
+        self.height = height
 
-        self.pack_options = {
-            "expand": False,
-            "side": "top",
-            "fill":"None"
-        }
+        self.expand = False
+        self.side = "top"
+        self.fill = "none"
 
 
     def pack(self):
@@ -326,11 +332,9 @@ class Widget:
 
         self.display = ""
 
-        self.pack_options = {
-            "expand": False,
-            "side": "top",
-            "fill":"None"
-        }
+        self.expand = False
+        self.side = "top"
+        self.fill = "none"
 
         
     def pack(self, expand=False, side="top", fill="none"):
@@ -340,9 +344,9 @@ class Widget:
         assert side in ("top", "bottom", "left", "right"), "Parameter 'side' must one of the following 'top', 'bottom', 'left', or 'right'."
         assert fill in ("none", "both", "x", "y"), "Parameter 'fill' must one of the following 'none', 'both', 'x', or 'y'."
 
-        self.pack_options["expand"] = expand
-        self.pack_options["side"] = side
-        self.pack_options["fill"] = fill
+        self.expand = expand
+        self.side = side
+        self.fill = fill
     
 
     def draw(self):
@@ -414,7 +418,7 @@ class Label(Widget):
 
         if pk_update_needed:
             self.undraw()
-            #self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            #self.x = math.floor((self.cmdui_obj.main_frame.width / 2) - (self.width / 2))
             self.draw()
 
 
@@ -461,7 +465,7 @@ class Button(Widget):
 
         if pk_update_needed:
             self.undraw()
-            # self.x = math.floor((self.cmdui_obj.window_width / 2) - (self.width / 2))
+            # self.x = math.floor((self.cmdui_obj.main_frame.width / 2) - (self.width / 2))
             self.draw()
 
       
@@ -658,7 +662,7 @@ class Menu(Widget):
     def __init__(self, cmdui_obj):
         super().__init__(cmdui_obj, x=0, y=0)
 
-        self.width = self.cmdui_obj.window_width
+        self.width = self.cmdui_obj.main_frame.width
         self.height = 2
         
         self.options = []
@@ -679,7 +683,7 @@ class Menu(Widget):
     def draw(self):
         self.x = 0
         self.y = 0
-        self.width = self.cmdui_obj.window_width
+        self.width = self.cmdui_obj.main_frame.width
         self.display = self.generate_menu()
 
         for i in range(len(self.display)):
