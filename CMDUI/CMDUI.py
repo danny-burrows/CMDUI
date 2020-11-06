@@ -4,225 +4,6 @@ from CMDUI.colors import get_color
 import math
 
 
-class CMDUI:
-
-    
-    def __init__(self):
-        self.console_manager = ConsoleManager(on_move=self.on_mouse_move, 
-                                              on_click=self.on_mouse_click,
-                                              on_resize=self.on_window_resize)
-
-        self.packed_widgets = []
-
-        self.console_manager.init_console_output()
-
-        self.main_frame = Frame(
-            self, 
-            x=0, 
-            y=0, 
-            width=self.console_manager.console_size[0], 
-            height=self.console_manager.console_size[1]
-        )
-
-
-    def mainloop(self):
-        try:
-            self.console_manager.start()
-
-            # (DISABLED FOR DEBUG)
-            # self.console_manager.set_cursor_visable(False)
-
-            # Initially building widgets!
-            self.update_pack()
-
-            self.console_manager.join()
-        finally:
-            self.console_manager.stop()
-
-
-    def on_mouse_move(self, x, y):
-        for widget in self.packed_widgets:
-            if isinstance(widget, Widget):
-                widget.check_hover(x, y)
-
-
-    def on_mouse_click(self, x, y, button_state):
-        if button_state == 1:
-            for widget in self.packed_widgets:
-                if isinstance(widget, Widget):
-                    if widget.check_inside(x, y):
-                        widget.on_press(x, y)
-                    
-        elif button_state == 0:
-            for widget in self.packed_widgets:
-                if isinstance(widget, Widget):
-                    widget.on_release()
-
-
-    def on_window_resize(self):
-        self.main_frame.width = self.console_manager.console_size[0]
-        self.main_frame.height = self.console_manager.console_size[1]
-        self.update_pack()
-
-
-    def pack_widget(self, widget):
-        if widget in self.packed_widgets:
-            return False
-        self.packed_widgets.append(widget)
-
-
-    def update_pack(self, cur_frame=False):
-        # https://www.tcl.tk/man/tcl8.6/TkCmd/pack.htm
-
-        if not cur_frame:
-            cur_frame = self.main_frame
-
-        # PASS #1
-
-        width = max_width = cur_frame.width
-        height = max_height = cur_frame.height
-
-        for widget in self.packed_widgets:
-            if widget.side == "top" or widget.side == "bottom":
-                tmp = widget.width
-                if tmp > max_width:
-                    max_width = tmp
-                height += widget.height
-            else:
-                tmp = widget.height
-                if tmp > max_height:
-                    max_height = tmp
-                width += widget.width
-        
-        if width > max_width:
-            max_width = width
-        if height > max_height:
-            max_height = height
-
-        if max_width < cur_frame.width:
-            max_width = cur_frame.width
-        if max_height < cur_frame.height:
-            max_height = cur_frame.height
-
-        # If window size already changed then just stop and try again in a mo...
-        if max_width == cur_frame.width or max_height == cur_frame.height:
-            self.update_pack()
-        
-        # PASS #2
-
-        cavity_x = 0
-        cavity_y = 0
-
-        cavity_width = cur_frame.width
-        cavity_height = cur_frame.height
-
-        for widget_num, widget in enumerate(self.packed_widgets):
-            if widget.side == "top" or widget.side == "bottom":
-                frame_width = cavity_width
-                frame_height = widget.height
-                if widget.expand:
-                    frame_height += self.y_expansion(widget_num, cavity_height)
-
-                cavity_height -= frame_height
-                if cavity_height < 0:
-                    frame_height += cavity_height
-                    cavity_height = 0
-
-                frame_x = cavity_x
-                if widget.side == "top":
-                    frame_y = cavity_y
-                    cavity_y += frame_height
-                else:
-                    frame_y = cavity_y + cavity_height
-            else:
-                frame_height = cavity_height
-                frame_width = widget.width
-                if widget.expand:
-                    frame_width += self.x_expansion(widget_num, cavity_width)
-
-                cavity_width -= frame_width
-                if cavity_width < 0:
-                    frame_width += cavity_width
-                    cavity_width = 0
-
-                frame_y = cavity_y
-                if widget.side == "left":
-                    frame_x = cavity_x
-                    cavity_x += frame_width
-                else:
-                    frame_x = cavity_x + cavity_width
-
-            widget.pack_frame = [frame_x, frame_y, frame_width, frame_height]            
-            
-            # Extra for CMDUI...
-            import time
-            import random
-            x = ["a","c","d","1","2","3","4","5","6","7","8","9"]
-            h = int(f"0x{str(random.choice(x))}f", 16)
-            self.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
-            time.sleep(0.07)
-            
-            new_wx = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
-            new_wy = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y    
-
-            if new_wx == widget.x and new_wy == widget.y:
-                return
-
-            widget.x = new_wx
-            widget.y = new_wy
-            widget.draw()
-
-
-    def x_expansion(self, widget_num, cavity_width):
-        minExpand = cavity_width
-        num_expand = 0
-        for widget_n in range(widget_num, len(self.packed_widgets)):
-            widget = self.packed_widgets[widget_n]
-            child_width = widget.width
-            
-            if widget.side == "top" or widget.side == "bottom":
-                if num_expand:
-                    cur_expand = (cavity_width - child_width) / num_expand
-                    if cur_expand < minExpand:
-                        minExpand = cur_expand
-            else:
-                cavity_width -= child_width
-                if widget.expand:
-                    num_expand += 1
-        
-        if num_expand:
-            cur_expand = cavity_width / num_expand
-            if cur_expand < minExpand:
-                minExpand = cur_expand
-        
-        return int(minExpand) if not (minExpand < 0) else 0
-
-
-    def y_expansion(self, widget_num, cavity_height):
-        minExpand = cavity_height
-        num_expand = 0
-        for widget_n in range(widget_num, len(self.packed_widgets)):
-            widget = self.packed_widgets[widget_n]
-            child_height = widget.height
-            
-            if widget.side == "left" or widget.side == "right":
-                if num_expand:
-                    cur_expand = (cavity_height - child_height) / num_expand
-                    if cur_expand < minExpand:
-                        minExpand = cur_expand
-            else:
-                cavity_height -= child_height
-                if widget.expand:
-                    num_expand += 1
-        
-        if num_expand:
-            cur_expand = cavity_height / num_expand
-            if cur_expand < minExpand:
-                minExpand = cur_expand
-        
-        return int(minExpand) if not (minExpand < 0) else 0
-
-
 class Frame:
 
 
@@ -283,31 +64,6 @@ class Frame:
     def undraw(self):
         pass
 
-
-    def update_pack(self, undraw=False):
-        # If expand=True...
-        # height_of_widgets = sum(widget.height for widget in self.packed_widgets)
-        # self.y = math.floor((self.height / 2) - (height_of_widgets / 2))
-
-        widget_yoffset = 0
-
-        for widget in self.packed_widgets:
-            
-            if undraw:
-                widget.undraw()
-
-            widget.x = math.floor((self.x + self.width / 2) - (widget.width / 2))
-            widget.y = self.y + widget_yoffset
-
-            if isinstance(widget, Frame):
-                widget_yoffset = widget.update_pack()
-
-            widget.draw()
-
-            widget_yoffset += widget.height
-        
-        return widget_yoffset
-
     
     def paint_background(self, color):
         self.cmdui_obj.console_manager.color_area(
@@ -317,7 +73,221 @@ class Frame:
             self.height, 
             color
         )
+
+    
+    def update_pack(self, force_draw=False):
+        # https://www.tcl.tk/man/tcl8.6/TkCmd/pack.htm
+
+        # PASS #1
+
+        width = max_width = self.width
+        height = max_height = self.height
+
+        for widget in self.packed_widgets:
+            if widget.side == "top" or widget.side == "bottom":
+                tmp = widget.width
+                if tmp > max_width:
+                    max_width = tmp
+                height += widget.height
+            else:
+                tmp = widget.height
+                if tmp > max_height:
+                    max_height = tmp
+                width += widget.width
         
+        if width > max_width:
+            max_width = width
+        if height > max_height:
+            max_height = height
+
+        if max_width < self.width:
+            max_width = self.width
+        if max_height < self.height:
+            max_height = self.height
+
+        # If window size already changed then just stop and try again in a mo...
+        #if max_width == self.width or max_height == self.height:
+        #    self.update_pack()
+        
+        # PASS #2
+
+        cavity_x = 0
+        cavity_y = 0
+
+        cavity_width = self.width
+        cavity_height = self.height
+
+        for widget_num, widget in enumerate(self.packed_widgets):
+            if widget.side == "top" or widget.side == "bottom":
+                frame_width = cavity_width
+                frame_height = widget.height
+                if widget.expand:
+                    frame_height += self.y_expansion(widget_num, cavity_height)
+
+                cavity_height -= frame_height
+                if cavity_height < 0:
+                    frame_height += cavity_height
+                    cavity_height = 0
+
+                frame_x = cavity_x
+                if widget.side == "top":
+                    frame_y = cavity_y
+                    cavity_y += frame_height
+                else:
+                    frame_y = cavity_y + cavity_height
+            else:
+                frame_height = cavity_height
+                frame_width = widget.width
+                if widget.expand:
+                    frame_width += self.x_expansion(widget_num, cavity_width)
+
+                cavity_width -= frame_width
+                if cavity_width < 0:
+                    frame_width += cavity_width
+                    cavity_width = 0
+
+                frame_y = cavity_y
+                if widget.side == "left":
+                    frame_x = cavity_x
+                    cavity_x += frame_width
+                else:
+                    frame_x = cavity_x + cavity_width
+
+            widget.pack_frame = [frame_x, frame_y, frame_width, frame_height]            
+            
+            # Extra for CMDUI...
+            import time
+            import random
+            x = ["a","c","d","1","2","3","4","5","6","7","8","9"]
+            h = int(f"0x{str(random.choice(x))}f", 16)
+            self.cmdui_obj.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
+            time.sleep(0.07)
+            
+            new_wx = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
+            new_wy = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y    
+
+            # if not force_draw and new_wx == widget.x and new_wy == widget.y:
+            #     return
+
+            widget.x = new_wx
+            widget.y = new_wy
+            widget.draw()
+
+
+    def x_expansion(self, widget_num, cavity_width):
+        minExpand = cavity_width
+        num_expand = 0
+        for widget_n in range(widget_num, len(self.packed_widgets)):
+            widget = self.packed_widgets[widget_n]
+            child_width = widget.width
+            
+            if widget.side == "top" or widget.side == "bottom":
+                if num_expand:
+                    cur_expand = (cavity_width - child_width) / num_expand
+                    if cur_expand < minExpand:
+                        minExpand = cur_expand
+            else:
+                cavity_width -= child_width
+                if widget.expand:
+                    num_expand += 1
+        
+        if num_expand:
+            cur_expand = cavity_width / num_expand
+            if cur_expand < minExpand:
+                minExpand = cur_expand
+        
+        return int(minExpand) if not (minExpand < 0) else 0
+
+
+    def y_expansion(self, widget_num, cavity_height):
+        minExpand = cavity_height
+        num_expand = 0
+        for widget_n in range(widget_num, len(self.packed_widgets)):
+            widget = self.packed_widgets[widget_n]
+            child_height = widget.height
+            
+            if widget.side == "left" or widget.side == "right":
+                if num_expand:
+                    cur_expand = (cavity_height - child_height) / num_expand
+                    if cur_expand < minExpand:
+                        minExpand = cur_expand
+            else:
+                cavity_height -= child_height
+                if widget.expand:
+                    num_expand += 1
+        
+        if num_expand:
+            cur_expand = cavity_height / num_expand
+            if cur_expand < minExpand:
+                minExpand = cur_expand
+        
+        return int(minExpand) if not (minExpand < 0) else 0
+
+
+class CMDUI(Frame):
+
+    
+    def __init__(self):
+        self.console_manager = ConsoleManager(on_move=self.on_mouse_move, 
+                                              on_click=self.on_mouse_click,
+                                              on_resize=self.on_window_resize)
+
+        self.console_manager.init_console_output()
+        
+        super().__init__(
+            self, 
+            x=0, 
+            y=0, 
+            width=self.console_manager.console_size[0], 
+            height=self.console_manager.console_size[1]
+        )
+        
+
+
+    def mainloop(self):
+        try:
+            self.console_manager.start()
+
+            # (DISABLED FOR DEBUG)
+            # self.console_manager.set_cursor_visable(False)
+
+            # Initially building widgets!
+            self.update_pack()
+
+            self.console_manager.join()
+        finally:
+            self.console_manager.stop()
+
+
+    def on_mouse_move(self, x, y):
+        for widget in self.packed_widgets:
+            if isinstance(widget, Widget):
+                widget.check_hover(x, y)
+
+
+    def on_mouse_click(self, x, y, button_state):
+        if button_state == 1:
+            for widget in self.packed_widgets:
+                if isinstance(widget, Widget):
+                    if widget.check_inside(x, y):
+                        widget.on_press(x, y)
+                    
+        elif button_state == 0:
+            for widget in self.packed_widgets:
+                if isinstance(widget, Widget):
+                    widget.on_release()
+
+
+    def on_window_resize(self):
+        self.width = self.console_manager.console_size[0]
+        self.height = self.console_manager.console_size[1]
+        self.update_pack(force_draw=True)
+
+
+    def pack_widget(self, widget):
+        if widget in self.packed_widgets:
+            return False
+        self.packed_widgets.append(widget)
 
 
 class Widget:
