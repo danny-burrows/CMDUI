@@ -6,7 +6,7 @@ from setuptools import find_packages, setup
 
 NAME = 'CMDUI'
 DESCRIPTION = 'A GUI toolkit for CMD.'
-URL = 'https://github.com/TheBrokenEstate/CMDUI'
+URL = 'https://github.com/danny-burrows/CMDUI'
 EMAIL = 'dannyburrows@protonmail.com'
 AUTHOR = 'Dan Burrows'
 REQUIRES_PYTHON = '>=3.6.0'
