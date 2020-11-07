@@ -80,17 +80,17 @@ class Frame:
 
         # PASS #1
 
-        width = max_width = self.width
-        height = max_height = self.height
+        width = max_width = 0
+        height = max_height = 0
 
         for widget in self.packed_widgets:
             if widget.side == "top" or widget.side == "bottom":
-                tmp = widget.width
+                tmp = widget.width + width
                 if tmp > max_width:
                     max_width = tmp
                 height += widget.height
             else:
-                tmp = widget.height
+                tmp = widget.height + height
                 if tmp > max_height:
                     max_height = tmp
                 width += widget.width
@@ -105,9 +105,14 @@ class Frame:
         if max_height < self.height:
             max_height = self.height
 
+        # Expand window or frame if required...
+        if max_width > self.width and max_height > self.height:
+            self.width = max_width
+            self.height = max_height
+
         # If window size already changed then just stop and try again in a mo...
-        #if max_width == self.width or max_height == self.height:
-        #    self.update_pack()
+        if max_width != self.width or max_height != self.height:
+            self.update_pack()
         
         # PASS #2
 
@@ -166,8 +171,8 @@ class Frame:
             new_wx = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
             new_wy = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y    
 
-            # if not force_draw and new_wx == widget.x and new_wy == widget.y:
-            #     return
+            if not force_draw and new_wx == widget.x and new_wy == widget.y:
+                return
 
             widget.x = new_wx
             widget.y = new_wy
@@ -412,6 +417,16 @@ class Label(Widget):
         btm = f'└─{"─"*len(self.text)}─┘'
 
         return (top, mid, btm)
+
+
+    @property
+    def width(self):
+        return len(self.display[0])
+
+
+    @property
+    def height(self):
+        return len(self.display)
 
 
 class Button(Widget):
@@ -684,4 +699,3 @@ class MenuOption:
         menu_obj.options.append(self)
 
         self.text = text
-
