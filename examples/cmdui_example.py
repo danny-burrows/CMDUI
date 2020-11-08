@@ -38,30 +38,18 @@ txt = CMD.StringVar()
 btn_txt = CMD.StringVar()
 btn_txt.set("Start")
 
-# lab = CMD.Label(root, textvariable=txt)
-# lab.pack()
-
 frm = CMD.Frame(root)
 frm.pack()
-
-# but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
-# but.pack()
-
-
 lab = CMD.Label(frm, textvariable=txt)
 lab.pack(side="bottom")
 
 but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
 but.pack(side="top", expand=True)
-
 but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
 but.pack(side="right")
-
 but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
 but.pack()
-
 but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
 but.pack(side="left")
-
 
 root.mainloop()
