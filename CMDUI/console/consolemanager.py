@@ -1,11 +1,12 @@
-from CMDUI.utils.stoppablethread import StoppableThread
-from CMDUI.console.resizelistener import ResizeListener
-import win32console
-import pywintypes
-import win32file
 import threading
-import win32con
 import time
+
+import pywintypes
+import win32con
+import win32console
+import win32file
+from CMDUI.console.resizelistener import ResizeListener
+from CMDUI.utils.stoppablethread import StoppableThread
 
 
 class ConsoleManager(StoppableThread):

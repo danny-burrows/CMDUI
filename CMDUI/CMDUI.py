@@ -1,7 +1,10 @@
-from CMDUI.console.consolemanager import ConsoleManager
-from CMDUI.variables import StringVar, IntVar, DoubleVar, BooleanVar
-from CMDUI.colors import get_color
 import math
+import random
+import time
+
+from CMDUI.colors import get_color
+from CMDUI.console.consolemanager import ConsoleManager
+from CMDUI.variables import BooleanVar, DoubleVar, IntVar, StringVar
 
 
 class Frame:
@@ -14,10 +17,7 @@ class Frame:
             self.cmdui_obj = parent.cmdui_obj
 
         self.parent = parent
-
-        self.frames = []
-
-        self.packed_widgets = []
+        self.packed_items = []
         
         self.x = x
         self.y = y
@@ -29,35 +29,27 @@ class Frame:
         self.fill = "none"
 
 
-    def pack(self):
-        if self not in self.cmdui_obj.packed_widgets:
-            self.cmdui_obj.packed_widgets.append(self)
+    def pack(self, expand=False, side="top", fill="none"):
+        assert isinstance(expand, bool), \
+            "Parameter 'expand' must be a boolean!"
+        assert side in ("top", "bottom", "left", "right"), \
+            "Parameter 'side' must be one of the following 'top', 'bottom', 'left', or 'right'."
+        assert fill in ("none", "both", "x", "y"), \
+            "Parameter 'fill' must be one of the following 'none', 'both', 'x', or 'y'."
 
-
-    def pack_widget(self, widget):
-        if widget in self.packed_widgets:
+        if self in self.parent.packed_items:
             return False
-
-        self.packed_widgets.append(widget)
-        self.cmdui_obj.packed_widgets.append(widget)
-        self.calc_frame_size()
-    
-
-    def calc_frame_size(self):
-        self.height = sum(widget.height for widget in self.packed_widgets)
-        try:
-            self.width = max(widget.width for widget in self.packed_widgets)
-        except ValueError:
-            assert len(self.packed_widgets) == 0
+        self.parent.packed_items.append(self)
+        self.cmdui_obj.visable_widgets.append(self)
         
-        print(self.x, self.y, self.width, self.height)
+        self.expand = expand
+        self.side = side
+        self.fill = fill
 
 
     def draw(self):
-        import random
         x = ["a","c","d","0","1","2","3","4","5","6","7","8","9"]
-        h = int(f"0x{str(random.choice(x))}f", 16)
-        print(h)
+        h = int(f"0x{random.choice(x)}f", 16)
         self.paint_background(h)
 
 
@@ -83,7 +75,7 @@ class Frame:
         width = max_width = 0
         height = max_height = 0
 
-        for widget in self.packed_widgets:
+        for widget in self.packed_items:
             if widget.side == "top" or widget.side == "bottom":
                 tmp = widget.width + width
                 if tmp > max_width:
@@ -100,29 +92,25 @@ class Frame:
         if height > max_height:
             max_height = height
 
-        if max_width < self.width:
-            max_width = self.width
-        if max_height < self.height:
-            max_height = self.height
-
         # Expand window or frame if required...
-        if max_width > self.width and max_height > self.height:
+        if max_width > self.width:
             self.width = max_width
+        if max_height > self.height:
             self.height = max_height
 
         # If window size already changed then just stop and try again in a mo...
-        if max_width != self.width or max_height != self.height:
-            self.update_pack()
+        # if max_width != self.width or max_height != self.height:
+        #     self.update_pack()
         
         # PASS #2
 
-        cavity_x = 0
-        cavity_y = 0
+        cavity_x = self.x
+        cavity_y = self.y
 
         cavity_width = self.width
         cavity_height = self.height
 
-        for widget_num, widget in enumerate(self.packed_widgets):
+        for widget_num, widget in enumerate(self.packed_items):
             if widget.side == "top" or widget.side == "bottom":
                 frame_width = cavity_width
                 frame_height = widget.height
@@ -161,12 +149,10 @@ class Frame:
             widget.pack_frame = [frame_x, frame_y, frame_width, frame_height]            
             
             # Extra for CMDUI...
-            import time
-            import random
             x = ["a","c","d","1","2","3","4","5","6","7","8","9"]
-            h = int(f"0x{str(random.choice(x))}f", 16)
+            h = int(f"0x{random.choice(x)}f", 16)
             self.cmdui_obj.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
-            time.sleep(0.07)
+            #time.sleep(0.7)
             
             new_wx = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
             new_wy = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y    
@@ -176,14 +162,17 @@ class Frame:
 
             widget.x = new_wx
             widget.y = new_wy
+            
             widget.draw()
+            if isinstance(widget, Frame):
+                widget.update_pack(force_draw=True)
 
 
     def x_expansion(self, widget_num, cavity_width):
         minExpand = cavity_width
         num_expand = 0
-        for widget_n in range(widget_num, len(self.packed_widgets)):
-            widget = self.packed_widgets[widget_n]
+        for widget_n in range(widget_num, len(self.packed_items)):
+            widget = self.packed_items[widget_n]
             child_width = widget.width
             
             if widget.side == "top" or widget.side == "bottom":
@@ -207,8 +196,8 @@ class Frame:
     def y_expansion(self, widget_num, cavity_height):
         minExpand = cavity_height
         num_expand = 0
-        for widget_n in range(widget_num, len(self.packed_widgets)):
-            widget = self.packed_widgets[widget_n]
+        for widget_n in range(widget_num, len(self.packed_items)):
+            widget = self.packed_items[widget_n]
             child_height = widget.height
             
             if widget.side == "left" or widget.side == "right":
@@ -233,9 +222,11 @@ class CMDUI(Frame):
 
     
     def __init__(self):
-        self.console_manager = ConsoleManager(on_move=self.on_mouse_move, 
-                                              on_click=self.on_mouse_click,
-                                              on_resize=self.on_window_resize)
+        self.console_manager = ConsoleManager(
+            on_move=self.on_mouse_move, 
+            on_click=self.on_mouse_click,
+            on_resize=self.on_window_resize
+        )
 
         self.console_manager.init_console_output()
         
@@ -246,7 +237,7 @@ class CMDUI(Frame):
             width=self.console_manager.console_size[0], 
             height=self.console_manager.console_size[1]
         )
-        
+        self.visable_widgets = []
 
 
     def mainloop(self):
@@ -265,20 +256,20 @@ class CMDUI(Frame):
 
 
     def on_mouse_move(self, x, y):
-        for widget in self.packed_widgets:
+        for widget in self.visable_widgets:
             if isinstance(widget, Widget):
                 widget.check_hover(x, y)
 
 
     def on_mouse_click(self, x, y, button_state):
         if button_state == 1:
-            for widget in self.packed_widgets:
+            for widget in self.visable_widgets:
                 if isinstance(widget, Widget):
                     if widget.check_inside(x, y):
                         widget.on_press(x, y)
                     
         elif button_state == 0:
-            for widget in self.packed_widgets:
+            for widget in self.visable_widgets:
                 if isinstance(widget, Widget):
                     widget.on_release()
 
@@ -287,12 +278,6 @@ class CMDUI(Frame):
         self.width = self.console_manager.console_size[0]
         self.height = self.console_manager.console_size[1]
         self.update_pack(force_draw=True)
-
-
-    def pack_widget(self, widget):
-        if widget in self.packed_widgets:
-            return False
-        self.packed_widgets.append(widget)
 
 
 class Widget:
@@ -317,12 +302,18 @@ class Widget:
 
 
     def pack(self, expand=False, side="top", fill="none"):
-        self.parent.pack_widget(self)
+        assert isinstance(expand, bool), \
+            "Parameter 'expand' must be a boolean!"
+        assert side in ("top", "bottom", "left", "right"), \
+            "Parameter 'side' must be one of the following 'top', 'bottom', 'left', or 'right'."
+        assert fill in ("none", "both", "x", "y"), \
+            "Parameter 'fill' must be one of the following 'none', 'both', 'x', or 'y'."
 
-        assert isinstance(expand, bool), "Parameter 'expand' must be a boolean!"
-        assert side in ("top", "bottom", "left", "right"), "Parameter 'side' must one of the following 'top', 'bottom', 'left', or 'right'."
-        assert fill in ("none", "both", "x", "y"), "Parameter 'fill' must one of the following 'none', 'both', 'x', or 'y'."
-
+        if self in self.parent.packed_items:
+            return False
+        self.parent.packed_items.append(self)
+        self.cmdui_obj.visable_widgets.append(self)
+        
         self.expand = expand
         self.side = side
         self.fill = fill
@@ -330,7 +321,10 @@ class Widget:
 
     def re_pack(self):
 
-        # Need to check if the windows new position is too bit for the current frame!
+        # Need to check if the windows new position is too big for the current frame!
+        if self.width > (self.pack_frame[2]-self.pack_frame[0]) or self.height > (self.pack_frame[3]-self.pack_frame[1]):
+            self.cmdui_obj.update_pack(force_draw=True)
+            return
 
         new_wx = math.floor((self.pack_frame[2] / 2) - (self.width / 2)) + self.pack_frame[0] if self.width <= self.pack_frame[2] else self.pack_frame[0] 
         new_wy = math.floor((self.pack_frame[3] / 2) - (self.height / 2)) + self.pack_frame[1] if self.height <= self.pack_frame[3] else self.pack_frame[1] 
@@ -417,16 +411,6 @@ class Label(Widget):
         btm = f'└─{"─"*len(self.text)}─┘'
 
         return (top, mid, btm)
-
-
-    @property
-    def width(self):
-        return len(self.display[0])
-
-
-    @property
-    def height(self):
-        return len(self.display)
 
 
 class Button(Widget):
