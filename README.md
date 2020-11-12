@@ -7,8 +7,11 @@ This is a project to build an easy-to-use GUI toolkit using just the windows con
 
 Eventually I aim to mirror the placement methods available in Tkinter such as Pack, Place, and Grid. I would also like to make a version of CMDUI for ANSI code driven terminals in the same easy-to-use style, although in the meantime CMDUI is only runnable in the windows console (or CMD). 
 
+## Notes for 0.2.0 release
+Thanks for checking out the project! CMDUI is still in very early development and this release has added a new pack algorithm. This algorithm has been a tricky one to implement and there are still a lot of bugs that need to be ironed out. Feel free to open an issue if you encounter any. I hope you enjoy. :-)
+
 ## Installation
-Clone the repo, download as a zip file, or use the following command...
+CMDUI is now available on pip...
 ```sh
 pip install CMDUI
 ```
@@ -58,8 +61,3 @@ but.pack()
 
 cmdui.mainloop()
 ```
-
-## Current Issues
-Due to the way lines of text are wrapped in CMD the GUI had a tendency to explode with artifacts all over the place when the window is resized. The temporary fix I have implemented for this is very unstable and can cause crashes occasionally but I am currently still looking into a better fix for this problem.
-
-A means of toggling "Wrap text output on resize" really needs to be implemented in the C/C++ bindings for windows and subsequently ctypes or win32console for this problem to be fixed completely.
