@@ -30,7 +30,7 @@ class CMDUI(Frame):
             self.console_manager.start()
 
             # (DISABLED FOR DEBUG)
-            # self.console_manager.set_cursor_visable(False)
+            self.console_manager.set_cursor_visable(False)
 
             # Initially building widgets!
             self.update_pack()
@@ -62,4 +62,6 @@ class CMDUI(Frame):
     def on_window_resize(self):
         self.width = self.console_manager.console_size[0]
         self.height = self.console_manager.console_size[1]
+
+        self.console_manager.set_cursor_visable(False)
         self.update_pack(force_draw=True)

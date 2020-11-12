@@ -1,3 +1,5 @@
+import random
+
 _colors = {
     "black"         : 0x0,
     "blue"          : 0x1,
@@ -41,6 +43,10 @@ def get_color(fg_color_name: str, bg_color_name: str = "") -> int:
         return fg | bg
     else:
         return fg
+
+
+def get_random_background_color():
+    return get_bg_code(random.choice(list(_colors.keys())))
 
 
 def get_color_hex(fg_color_name: str, bg_color_name: str) -> hex:

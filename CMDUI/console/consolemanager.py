@@ -221,6 +221,8 @@ class ConsoleManager(StoppableThread):
             
 
     def _print_pos(self, x, y, text):
+        if x > self.console_size[0] or y > self.console_size[1]:
+            return -1
         pos = win32console.PyCOORDType(x, y)
         with self._thread_lock:
             self.console_output.SetConsoleCursorPosition(pos)

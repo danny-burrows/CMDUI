@@ -43,9 +43,7 @@ class Frame(Pack):
 
 
     def draw(self):
-        x = ["a","c","d","0","1","2","3","4","5","6","7","8","9"]
-        color_hex = int(f"0x{random.choice(x)}f", 16)
-        self.paint_background(color_hex)
+        pass
 
 
     def undraw(self):
@@ -90,8 +88,10 @@ class Frame(Pack):
         # Expand window or frame if required...
         if max_width > self.width:
             self.width = max_width
+            self.parent.update_pack()
         if max_height > self.height:
             self.height = max_height
+            self.parent.update_pack()
 
         # If window size already changed then just stop and try again in a mo...
         # if max_width != self.width or max_height != self.height:
@@ -143,22 +143,19 @@ class Frame(Pack):
 
             widget.pack_frame = [frame_x, frame_y, frame_width, frame_height]            
             
-            # Extra for CMDUI...
-            x = ["a","c","d","1","2","3","4","5","6","7","8","9"]
-            h = int(f"0x{random.choice(x)}f", 16)
-            self.cmdui_obj.console_manager.color_area(frame_x, frame_y, frame_width, frame_height, h)
-            #time.sleep(0.7)
-            
             new_wx = math.floor((frame_width / 2) - (widget.width / 2)) + frame_x if widget.width <= frame_width else frame_x 
             new_wy = math.floor((frame_height / 2) - (widget.height / 2)) + frame_y if widget.height <= frame_height else frame_y    
 
             if not force_draw and new_wx == widget.x and new_wy == widget.y:
                 return
 
+            widget.undraw()
+            
             widget.x = new_wx
             widget.y = new_wy
             
             widget.draw()
+
             if isinstance(widget, Frame):
                 widget.update_pack(force_draw=True)
 
