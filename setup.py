@@ -6,11 +6,11 @@ from setuptools import find_packages, setup
 
 NAME = 'CMDUI'
 DESCRIPTION = 'A GUI toolkit for CMD.'
-URL = 'https://github.com/TheBrokenEstate/CMDUI'
+URL = 'https://github.com/danny-burrows/CMDUI'
 EMAIL = 'dannyburrows@protonmail.com'
 AUTHOR = 'Dan Burrows'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:

@@ -1,11 +1,12 @@
-from CMDUI.utils.stoppablethread import StoppableThread
-from CMDUI.utils.windowresizelistener import ResizeListener
-import win32console
-import pywintypes
-import win32file
 import threading
-import win32con
 import time
+
+import pywintypes
+import win32con
+import win32console
+import win32file
+from CMDUI.console.resizelistener import ResizeListener
+from CMDUI.utils.stoppablethread import StoppableThread
 
 
 class ConsoleManager(StoppableThread):
@@ -24,47 +25,6 @@ class ConsoleManager(StoppableThread):
 
         self._thread_lock = threading.Lock()
         self._res_c = 0
-
-
-    def get_color(self):
-        console_screen_info = self.console_output.GetConsoleScreenBufferInfo()
-        return console_screen_info["Attributes"]
-
-
-    def set_color(self, color):
-        self.console_output.SetConsoleTextAttribute(color)
-
-    
-    def set_cursor_visable(self, visable):
-        console_cursor_info = self.console_output.GetConsoleCursorInfo()
-        self.console_output.SetConsoleCursorInfo(console_cursor_info[0], visable)
-
-
-    def print(self, text):
-        if not self._res_c:
-            self.console_output.WriteConsole(f'{text}\n')
-
-
-    def print_pos(self, x, y, text):
-        if not self._res_c:
-            self._print_pos(x, y, text)
-            
-
-    def _print_pos(self, x, y, text):
-        pos = win32console.PyCOORDType(x, y)
-        try:
-            with self._thread_lock:
-                self.console_output.SetConsoleCursorPosition(pos)
-                self.console_output.WriteConsole(text)
-        except pywintypes.error:
-            pass
-
-    
-    def color_pos(self, x, y, color):
-        pos = win32console.PyCOORDType(x, y)
-        attr=self.console_output.ReadConsoleOutputAttribute(Length=1, ReadCoord=pos)[0]
-        new_attr=(attr&~color)|win32console.BACKGROUND_BLUE
-        self.console_output.WriteConsoleOutputAttribute((new_attr,), pos)
 
 
     def init_console_input(self):
@@ -180,24 +140,15 @@ class ConsoleManager(StoppableThread):
                     #self.console_output.WriteConsole(str(input_record))
             time.sleep(0.01)
 
-        
-    def on_move(self, x, y):
-        pass
+
+    def on_window_resize(self):
+        self._res_c += 1             
+        if self._res_c == 1:
+            t = threading.Thread(target=self.currently_resizing_thread)
+            t.start()
 
 
-    def on_click(self, x, y, button_state):
-        pass
-
-
-    def on_scroll(self, x, y):
-        pass
-
-
-    def on_resize(self):
-        pass
-
-
-    def checker(self):
+    def currently_resizing_thread(self):
         res_n = 0
 
         self.window_width = self.console_size[0]
@@ -216,13 +167,6 @@ class ConsoleManager(StoppableThread):
         self.on_resize()
 
 
-    def on_window_resize(self):
-        self._res_c += 1             
-        if self._res_c == 1:
-            t = threading.Thread(target=self.checker)
-            t.start()
-
-
     def set_buffersize_to_windowsize(self):
         buffinfo = self.console_output.GetConsoleScreenBufferInfo()
         windowinfo = buffinfo['Window']
@@ -231,10 +175,7 @@ class ConsoleManager(StoppableThread):
             sizex = windowinfo.Right - windowinfo.Left + 1
             sizey = windowinfo.Bottom - windowinfo.Top + 1
 
-        try:
-            self.console_output.SetConsoleScreenBufferSize(win32console.PyCOORDType(sizex, sizey))
-        except pywintypes.error:
-            pass
+        self.console_output.SetConsoleScreenBufferSize(win32console.PyCOORDType(sizex, sizey))
 
 
     def color_flip_fun(self, pos):
@@ -264,6 +205,67 @@ class ConsoleManager(StoppableThread):
         return vkeys
 
 
+    def set_cursor_visable(self, visable):
+        console_cursor_info = self.console_output.GetConsoleCursorInfo()
+        self.console_output.SetConsoleCursorInfo(console_cursor_info[0], visable)
+
+
+    def print(self, text):
+        if not self._res_c:
+            self.console_output.WriteConsole(f'{text}\n')
+
+
+    def print_pos(self, x, y, text):
+        if not self._res_c:
+            self._print_pos(x, y, text)
+            
+
+    def _print_pos(self, x, y, text):
+        if x > self.console_size[0] or y > self.console_size[1]:
+            return -1
+        pos = win32console.PyCOORDType(x, y)
+        with self._thread_lock:
+            self.console_output.SetConsoleCursorPosition(pos)
+            self.console_output.WriteConsole(text)
+
+
+    def get_console_color_code(self):
+        console_screen_info = self.console_output.GetConsoleScreenBufferInfo()
+        return console_screen_info["Attributes"]
+
+
+    def set_color(self, color):
+        self.console_output.SetConsoleTextAttribute(color) 
+
+
+    def color_pos(self, x, y, color):
+        pos = win32console.PyCOORDType(x, y)
+        self.console_output.WriteConsoleOutputAttribute((color,), pos)
+    
+
+    def color_area(self, x, y, w, h, color):
+        attrs = (color,) * w
+        for i in range(h):
+            pos = win32console.PyCOORDType(x, y+i)
+            self.console_output.WriteConsoleOutputAttribute(attrs, pos)
+
+    
+    def on_move(self, x, y):
+        pass
+
+
+    def on_click(self, x, y, button_state):
+        pass
+
+
+    def on_scroll(self, x, y):
+        pass
+
+
+    def on_resize(self):
+        pass
+
+
     @property
     def console_size(self):
         buffinfo = self.console_output.GetConsoleScreenBufferInfo()
@@ -283,8 +285,6 @@ class ConsoleManager(StoppableThread):
         free_console=True
         try:
             win32console.AllocConsole()
-        except Exception as exc:
-            if exc.winerror != 5:
-                raise
+        except:
             free_console=False
         return free_console

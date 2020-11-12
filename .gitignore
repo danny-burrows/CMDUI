@@ -100,3 +100,6 @@ dmypy.json
 
 # Debugging files
 *.bat
+
+# IDE config files
+.vscode

@@ -1,9 +1,11 @@
 import sys
+
 sys.path.insert(0,'..')
 
-import CMDUI as CMD
 import threading
 import time
+
+import CMDUI as CMD
 
 
 def counter():
@@ -30,16 +32,24 @@ def stopwatch():
 
 
 running = False
-cmdui = CMD.CMDUI()
+root = CMD.CMDUI()
 
 txt = CMD.StringVar()
 btn_txt = CMD.StringVar()
 btn_txt.set("Start")
 
-lab = CMD.Label(cmdui, textvariable=txt)
-lab.pack()
+frm = CMD.Frame(root)
+frm.pack()
+lab = CMD.Label(frm, textvariable=txt)
+lab.pack(side="bottom")
 
-but = CMD.Button(cmdui, textvariable=btn_txt, command=stopwatch)
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
+but.pack(side="top", expand=True)
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
+but.pack(side="right")
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
 but.pack()
+but = CMD.Button(root, textvariable=btn_txt, command=stopwatch)
+but.pack(side="left")
 
-cmdui.mainloop()
+root.mainloop()
